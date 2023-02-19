@@ -14,6 +14,9 @@ import com.xibasdev.sipcaller.app.call.processing.CallProcessorApi
 import com.xibasdev.sipcaller.app.call.processing.notifier.CallStateNotifier
 import com.xibasdev.sipcaller.app.call.processing.notifier.CallStateNotifierApi
 import com.xibasdev.sipcaller.app.call.processing.worker.CallProcessingWorker
+import com.xibasdev.sipcaller.sip.SipEngine
+import com.xibasdev.sipcaller.sip.SipEngineApi
+import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -34,7 +37,7 @@ private const val TAG = "SipCallerAppModule"
 
 typealias LinphoneCore = Core
 
-@Module
+@Module(includes = [SipCallerAppModule.BindsModule::class])
 @InstallIn(SingletonComponent::class)
 class SipCallerAppModule {
 
@@ -171,14 +174,6 @@ class SipCallerAppModule {
     }
 
     @Provides
-    @Singleton
-    fun bindCallStateNotifier(
-        callStateNotifier: CallStateNotifier
-    ): CallStateNotifierApi {
-        return callStateNotifier
-    }
-
-    @Provides
     @Named("CallProcessing")
     fun provideStartCallProcessingWorkRequest(): OneTimeWorkRequest {
         return OneTimeWorkRequestBuilder<CallProcessingWorker>()
@@ -187,10 +182,21 @@ class SipCallerAppModule {
             .build()
     }
 
-    @Provides
-    @Singleton
-    fun bindCallProcessor(callProcessor: CallProcessor): CallProcessorApi {
-        return callProcessor
+    @Module
+    @InstallIn(SingletonComponent::class)
+    interface BindsModule {
+
+        @Binds
+        @Singleton
+        fun bindSipEngine(sipEngine: SipEngine): SipEngineApi
+
+        @Binds
+        @Singleton
+        fun bindCallStateNotifier(callStateNotifier: CallStateNotifier): CallStateNotifierApi
+
+        @Binds
+        @Singleton
+        fun bindCallProcessor(callProcessor: CallProcessor): CallProcessorApi
     }
 
     private fun initializeFileFromRawResourceForLinphone(

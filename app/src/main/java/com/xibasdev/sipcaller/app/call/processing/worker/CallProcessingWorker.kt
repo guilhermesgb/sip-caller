@@ -3,125 +3,48 @@ package com.xibasdev.sipcaller.app.call.processing.worker
 import android.content.Context
 import android.content.pm.ServiceInfo
 import android.os.Build
-import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.ForegroundInfo
 import androidx.work.ListenableWorker.Result.Failure
 import androidx.work.WorkerParameters
 import androidx.work.rxjava3.RxWorker
-import com.xibasdev.sipcaller.app.LinphoneCore
 import com.xibasdev.sipcaller.app.call.processing.notifier.CallStateNotifierApi
 import com.xibasdev.sipcaller.app.call.processing.notifier.getNotification
 import com.xibasdev.sipcaller.app.call.processing.notifier.getNotificationId
+import com.xibasdev.sipcaller.sip.SipEngineApi
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import io.reactivex.rxjava3.core.Completable
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.core.Scheduler
 import io.reactivex.rxjava3.core.Single
 import java.util.concurrent.TimeUnit.MILLISECONDS
-import org.linphone.core.Core
-import org.linphone.core.CoreListener
-import org.linphone.core.CoreListenerStub
-import org.linphone.core.GlobalState
-import org.linphone.core.GlobalState.Configuring
-import org.linphone.core.GlobalState.Off
-import org.linphone.core.GlobalState.On
-import org.linphone.core.GlobalState.Ready
-import org.linphone.core.GlobalState.Shutdown
-import org.linphone.core.GlobalState.Startup
-
-private const val TAG = "CallProcessingWorker"
 
 @HiltWorker
 class CallProcessingWorker @AssistedInject constructor(
     context: Context,
     parameters: WorkerParameters,
     @Assisted private val scheduler: Scheduler,
-    @Assisted private val linphoneCore: LinphoneCore,
+    @Assisted private val sipEngine: SipEngineApi,
     @Assisted private val callStateNotifier: CallStateNotifierApi
 ) : RxWorker(context, parameters) {
 
     override fun createWork(): Single<Result> {
         return setForeground(createForegroundInfo())
-            .andThen(
-                Single.create { emitter ->
-
-                    when (linphoneCore.globalState) {
-                        Startup,
-                        Configuring,
-                        On -> {
-                            Log.d(TAG, "Linphone already started.")
-                            emitter.onSuccess(Result.success())
-                            return@create
-                        }
-                        Shutdown,
-                        Off -> {
-                            Log.e(TAG, "Failed to start Linphone core;" +
-                                    " core not ready!")
-
-                            emitter.onSuccess(Result.failure())
-                            return@create
-                        }
-                        Ready -> Log.d(TAG, "Starting Linphone...")
-                    }
-
-                    val globalStateChangeListener: CoreListener = object : CoreListenerStub() {
-                        override fun onGlobalStateChanged(
-                            core: Core,
-                            state: GlobalState?,
-                            message: String
-                        ) {
-
-                            when (state) {
-                                Startup,
-                                Configuring -> Log.d(TAG, "Linphone startup in progress...")
-                                On -> {
-                                    Log.d(TAG, "Linphone startup complete!")
-
-                                    linphoneCore.removeListener(this)
-                                    emitter.onSuccess(Result.success())
-                                }
-                                Ready,
-                                Off,
-                                Shutdown,
-                                null -> {
-                                    Log.e(TAG, "Failed to start Linphone core;" +
-                                            " transitioned to state: $state!")
-
-                                    linphoneCore.removeListener(this)
-                                    emitter.onSuccess(Result.failure())
-                                }
-                            }
-                        }
-                    }
-
-                    linphoneCore.addListener(globalStateChangeListener)
-
-                    val startupCode = linphoneCore.start()
-
-                    if (startupCode != 0) {
-                        Log.e(TAG, "Failed to start Linphone core;" +
-                                " startup code: $startupCode!")
-
-                        linphoneCore.removeListener(globalStateChangeListener)
-                        emitter.onSuccess(Result.failure())
-                    }
-                }
-            )
+            .andThen(sipEngine.startEngine())
+            .mapToWorkResult()
             .flatMap { result ->
 
                 if (result is Failure) {
                     Single.just(result)
 
                 } else {
-                    Observable.interval(250, MILLISECONDS, scheduler)
-                        .map {
-
-                            Log.d(TAG, "Iterating Linphone core...")
-                            linphoneCore.iterate()
+                    Observable
+                        .interval(250, MILLISECONDS, scheduler)
+                        .flatMapCompletable {
+                            sipEngine.processEngineSteps()
                         }
-                        .ignoreElements()
-                        .andThen(Single.just(result))
+                        .mapToWorkResult()
                 }
             }
     }
@@ -145,5 +68,10 @@ class CallProcessingWorker @AssistedInject constructor(
                 notificationInfo.getNotification()
             )
         }
+    }
+
+    private fun Completable.mapToWorkResult(): Single<Result> {
+        return andThen(Single.just(Result.success()))
+            .onErrorReturnItem(Result.failure())
     }
 }
