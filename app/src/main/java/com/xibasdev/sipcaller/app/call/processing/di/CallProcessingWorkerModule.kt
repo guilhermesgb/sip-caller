@@ -1,4 +1,4 @@
-package com.xibasdev.sipcaller.app.call.processing
+package com.xibasdev.sipcaller.app.call.processing.di
 
 import androidx.work.Constraints
 import androidx.work.NetworkType.CONNECTED

@@ -55,10 +55,7 @@ class LinphoneSipEngine @Inject constructor(
 
                 when (state) {
                     GlobalState.Startup,
-                    GlobalState.Configuring -> Log.d(
-                        TAG,
-                        "Linphone startup in progress..."
-                    )
+                    GlobalState.Configuring -> Log.d(TAG, "Linphone startup in progress...")
                     GlobalState.On -> {
                         Log.d(TAG, "Linphone startup complete!")
 

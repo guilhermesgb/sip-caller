@@ -21,6 +21,7 @@ import javax.inject.Named
 
 private const val TAG = "CallProcessor"
 private const val UNIQUE_WORK_NAME = "CallProcessing"
+private const val CALL_PROCESSING_MONITORING_RATE_MS = 250L
 
 class CallProcessor @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -103,7 +104,7 @@ class CallProcessor @Inject constructor(
                 when (callProcessingState) {
                     CallProcessingSuspended,
                     CallProcessingStarted -> Observable
-                        .interval(250, MILLISECONDS)
+                        .interval(CALL_PROCESSING_MONITORING_RATE_MS, MILLISECONDS)
                         .doOnSubscribe {
                             if (callProcessingState == CallProcessingSuspended) {
                                 Log.d(TAG, "Monitoring suspended call processing...")

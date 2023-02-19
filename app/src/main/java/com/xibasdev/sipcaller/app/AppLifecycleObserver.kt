@@ -22,6 +22,5 @@ class AppLifecycleObserver @Inject constructor(
 
     override fun onDestroy(owner: LifecycleOwner) {
         disposables.dispose()
-        super.onDestroy(owner)
     }
 }

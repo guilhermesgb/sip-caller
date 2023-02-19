@@ -1,4 +1,4 @@
-package com.xibasdev.sipcaller.app.call.processing
+package com.xibasdev.sipcaller.app.call.processing.di
 
 import com.xibasdev.sipcaller.app.WorkManagerInitializer
 import com.xibasdev.sipcaller.app.WorkManagerInitializerApi
