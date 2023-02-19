@@ -37,6 +37,13 @@ interface CallStateNotifierApi {
      * Posts a [Notification] to the system informing users that such failure occurred.
      */
     fun notifyProcessingStopFailed(error: Throwable)
+
+    /**
+     * To be used when call processing is suspended.
+     *
+     * Posts a [Notification] to the system informing users of such condition.
+     */
+    fun notifyProcessingSuspended()
 }
 
 /**

@@ -27,9 +27,9 @@ interface CallProcessorApi {
      *   active network connection available.
      *
      * Using the [observeProcessingState] method you may observe a future transition from the
-     *   [CallProcessingScheduled] state into the [CallProcessingStarted] state when processing does
+     *   [CallProcessingSuspended] state into the [CallProcessingStarted] state when processing does
      *   indeed start executing in the background, as well as a transition from
-     *   [CallProcessingStarted] back to [CallProcessingScheduled] if the call processing is once
+     *   [CallProcessingStarted] back to [CallProcessingSuspended] if the call processing is once
      *   again suspended by the system e.g. while there's no active network connection available.
      *
      * Processing may be stopped with [stopProcessing].
@@ -45,14 +45,14 @@ interface CallProcessorApi {
      * While call processing is ongoing, it also emits [CallProcessingFailed] if a failure is
      *   detected that suddenly halts call processing.
      *
-     * [CallProcessingScheduled] is emitted when the call processing is scheduled but not currently
+     * [CallProcessingSuspended] is emitted when the call processing is scheduled but not currently
      *   executing. Call background processing is paused and sent back to the scheduled state by
      *   the system while the device is currently with no active network connection enabled.
      *
      * It is possible for the system to not immediately start call processing from the
      *   [startProcessing] method e.g. if the system is under heavy load and/or the call processing
      *   work quota is depleted (in which case some time has to pass until it refreshes again) -
-     *   under such conditions, [CallProcessingScheduled] is also emitted signaling this.
+     *   under such conditions, [CallProcessingSuspended] is also emitted signaling this.
      */
     fun observeProcessingState(): Observable<CallProcessingState>
 

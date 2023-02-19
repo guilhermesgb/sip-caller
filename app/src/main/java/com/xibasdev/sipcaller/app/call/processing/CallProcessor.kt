@@ -103,19 +103,17 @@ class CallProcessor @Inject constructor(
             .switchMap { callProcessingState ->
 
                 when (callProcessingState) {
-                    CallProcessingScheduled,
+                    CallProcessingSuspended,
                     CallProcessingStarted -> Observable
                         .interval(250, MILLISECONDS)
                         .doOnSubscribe {
-                            Log.d(TAG, "Started monitoring " +
-                                    if (callProcessingState == CallProcessingScheduled) {
-                                        "a pending"
+                            if (callProcessingState == CallProcessingSuspended) {
+                                Log.d(TAG, "Monitoring suspended call processing...")
 
-                                    } else {
-                                        "an ongoing"
-                                    }
-                                    + " call processing..."
-                            )
+                                callStateNotifier.notifyProcessingSuspended()
+                            } else {
+                                Log.d(TAG, "Monitoring ongoing call processing...")
+                            }
                         }
                         .map {
                             val workInfoList = WorkManager.getInstance(context)
@@ -131,9 +129,9 @@ class CallProcessor @Inject constructor(
 
                             } else when (val processingState = workInfoList.first().state) {
                                 ENQUEUED -> {
-                                    Log.d(TAG, "Processing is still pending...")
+                                    Log.d(TAG, "Processing is still suspended...")
 
-                                    CallProcessingScheduled.also {
+                                    CallProcessingSuspended.also {
                                         onNext(it)
                                     }
                                 }
