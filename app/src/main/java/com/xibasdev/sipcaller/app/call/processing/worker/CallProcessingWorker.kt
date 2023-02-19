@@ -3,6 +3,7 @@ package com.xibasdev.sipcaller.app.call.processing.worker
 import android.content.Context
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.ForegroundInfo
 import androidx.work.ListenableWorker.Result.Failure
@@ -20,6 +21,9 @@ import io.reactivex.rxjava3.core.Scheduler
 import io.reactivex.rxjava3.core.Single
 import java.util.concurrent.TimeUnit.MILLISECONDS
 
+const val CALL_PROCESSING_RATE_MS = 250L
+private const val TAG = "CallProcessingWorker"
+
 @HiltWorker
 class CallProcessingWorker @AssistedInject constructor(
     context: Context,
@@ -31,20 +35,38 @@ class CallProcessingWorker @AssistedInject constructor(
 
     override fun createWork(): Single<Result> {
         return setForeground(createForegroundInfo())
+            .doOnSubscribe {
+                Log.d(TAG, "Starting call processing work in foreground...")
+            }
             .andThen(sipEngine.startEngine())
             .mapToWorkResult()
-            .flatMap { result ->
+            .flatMap { processingStartResult ->
 
-                if (result is Failure) {
-                    Single.just(result)
+                if (processingStartResult is Failure) {
+                    Log.e(TAG, "Call processing failed to start!")
+
+                    Single.just(processingStartResult)
 
                 } else {
+                    Log.d(TAG, "Call processing started successfully.")
+
                     Observable
-                        .interval(250, MILLISECONDS, scheduler)
+                        .interval(CALL_PROCESSING_RATE_MS, MILLISECONDS, scheduler)
                         .flatMapCompletable {
+                            Log.d(TAG, "Executing call processing steps.")
+
                             sipEngine.processEngineSteps()
                         }
                         .mapToWorkResult()
+                        .doOnSuccess { processingStepsResult ->
+
+                            if (processingStepsResult is Failure) {
+                                Log.e(TAG, "Failed to execute call processing steps!")
+
+                            } else {
+                                Log.d(TAG, "Call processing steps executed successfully.")
+                            }
+                        }
                 }
             }
     }

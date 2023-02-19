@@ -66,4 +66,9 @@ interface CallProcessorApi {
      * Processing may be started again with [startProcessing].
      */
     fun stopProcessing(): Completable
+
+    /**
+     * Invalidates this processor instance, cleaning up its underlying monitoring processing.
+     */
+    fun clear()
 }

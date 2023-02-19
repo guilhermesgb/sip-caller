@@ -1,7 +1,7 @@
-package com.xibasdev.sipcaller.sip
+package com.xibasdev.sipcaller.sip.linphone
 
 import android.util.Log
-import com.xibasdev.sipcaller.app.LinphoneCore
+import com.xibasdev.sipcaller.sip.SipEngineApi
 import io.reactivex.rxjava3.core.Completable
 import io.reactivex.rxjava3.core.CompletableEmitter
 import javax.inject.Inject
@@ -12,7 +12,7 @@ import org.linphone.core.GlobalState
 
 private const val TAG = "SipEngine"
 
-class SipEngine @Inject constructor(
+class LinphoneSipEngine @Inject constructor(
     private val linphoneCore: LinphoneCore
 ) : SipEngineApi {
 
@@ -24,7 +24,7 @@ class SipEngine @Inject constructor(
                 GlobalState.Configuring,
                 GlobalState.On -> {
                     Log.d(TAG, "Linphone already started.")
-                    
+
                     emitter.onComplete()
                 }
                 GlobalState.Shutdown,
@@ -55,7 +55,10 @@ class SipEngine @Inject constructor(
 
                 when (state) {
                     GlobalState.Startup,
-                    GlobalState.Configuring -> Log.d(TAG, "Linphone startup in progress...")
+                    GlobalState.Configuring -> Log.d(
+                        TAG,
+                        "Linphone startup in progress..."
+                    )
                     GlobalState.On -> {
                         Log.d(TAG, "Linphone startup complete!")
 

@@ -1,22 +1,9 @@
-package com.xibasdev.sipcaller.app
+package com.xibasdev.sipcaller.sip.linphone
 
 import android.content.Context
 import android.util.Log
-import androidx.work.Constraints
-import androidx.work.NetworkType.CONNECTED
-import androidx.work.OneTimeWorkRequest
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST
 import com.xibasdev.sipcaller.BuildConfig
 import com.xibasdev.sipcaller.R
-import com.xibasdev.sipcaller.app.call.processing.CallProcessor
-import com.xibasdev.sipcaller.app.call.processing.CallProcessorApi
-import com.xibasdev.sipcaller.app.call.processing.notifier.CallStateNotifier
-import com.xibasdev.sipcaller.app.call.processing.notifier.CallStateNotifierApi
-import com.xibasdev.sipcaller.app.call.processing.worker.CallProcessingWorker
-import com.xibasdev.sipcaller.sip.SipEngine
-import com.xibasdev.sipcaller.sip.SipEngineApi
-import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -33,13 +20,13 @@ import org.linphone.core.AVPFMode
 import org.linphone.core.Core
 import org.linphone.core.Factory
 
-private const val TAG = "SipCallerAppModule"
+private const val TAG = "LinphoneModule"
 
 typealias LinphoneCore = Core
 
-@Module(includes = [SipCallerAppModule.BindsModule::class])
+@Module
 @InstallIn(SingletonComponent::class)
-class SipCallerAppModule {
+class LinphoneModule {
 
     @Provides
     @Named("LinphoneRxScheduler")
@@ -171,32 +158,6 @@ class SipCallerAppModule {
             }
             .subscribeOn(scheduler)
             .blockingGet()
-    }
-
-    @Provides
-    @Named("CallProcessing")
-    fun provideStartCallProcessingWorkRequest(): OneTimeWorkRequest {
-        return OneTimeWorkRequestBuilder<CallProcessingWorker>()
-            .setExpedited(RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(CONNECTED).build())
-            .build()
-    }
-
-    @Module
-    @InstallIn(SingletonComponent::class)
-    interface BindsModule {
-
-        @Binds
-        @Singleton
-        fun bindSipEngine(sipEngine: SipEngine): SipEngineApi
-
-        @Binds
-        @Singleton
-        fun bindCallStateNotifier(callStateNotifier: CallStateNotifier): CallStateNotifierApi
-
-        @Binds
-        @Singleton
-        fun bindCallProcessor(callProcessor: CallProcessor): CallProcessorApi
     }
 
     private fun initializeFileFromRawResourceForLinphone(

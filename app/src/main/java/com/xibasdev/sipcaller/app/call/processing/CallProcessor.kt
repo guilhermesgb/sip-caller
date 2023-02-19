@@ -2,14 +2,13 @@ package com.xibasdev.sipcaller.app.call.processing
 
 import android.content.Context
 import android.util.Log
-import androidx.work.Configuration
 import androidx.work.ExistingWorkPolicy.REPLACE
 import androidx.work.OneTimeWorkRequest
 import androidx.work.WorkInfo.State.ENQUEUED
 import androidx.work.WorkInfo.State.RUNNING
 import androidx.work.WorkManager
+import com.xibasdev.sipcaller.app.WorkManagerInitializerApi
 import com.xibasdev.sipcaller.app.call.processing.notifier.CallStateNotifierApi
-import com.xibasdev.sipcaller.app.call.processing.worker.CallProcessingWorkerFactory
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.reactivex.rxjava3.core.Completable
 import io.reactivex.rxjava3.core.Observable
@@ -27,12 +26,11 @@ class CallProcessor @Inject constructor(
     @ApplicationContext private val context: Context,
     private val callStateNotifier: CallStateNotifierApi,
     @Named("CallProcessing") private val startCallProcessingWorkRequest: OneTimeWorkRequest,
-    workerFactory: CallProcessingWorkerFactory
+    workManagerInitializer: WorkManagerInitializerApi
 ) : CallProcessorApi {
 
     init {
-        WorkManager.initialize(context, Configuration.Builder()
-            .setWorkerFactory(workerFactory).build())
+        workManagerInitializer.initializeWorkManager()
     }
 
     private val disposables = CompositeDisposable()
@@ -145,7 +143,7 @@ class CallProcessor @Inject constructor(
                                 else -> {
                                     Log.e(TAG, "Processing fail - work state: $processingState!")
 
-                                    val error = Exception(
+                                    val error = IllegalStateException(
                                         "Processing not running; " +
                                                 "system reported state: $processingState!"
                                     )
@@ -156,11 +154,21 @@ class CallProcessor @Inject constructor(
                                 }
                             }
                         }
+                        .onErrorReturn { error ->
+
+                            CallProcessingFailed(
+                                IllegalStateException("Processing monitoring error!", error)
+                            )
+                        }
                     CallProcessingStopped,
                     is CallProcessingFailed -> Observable.just(callProcessingState)
                 }
             }
             .subscribe()
             .addTo(disposables)
+    }
+
+    override fun clear() {
+        disposables.dispose()
     }
 }
