@@ -21,11 +21,16 @@ interface CallProcessorApi {
      *   remote parties as well as receive incoming calls from remote parties.
      *
      * While processing is just scheduled, the app will not yet be able to place outgoing calls to
-     *   remote parties as well as receive incoming calls from remote parties.
+     *   remote parties as well as receive incoming calls from remote parties. Processing may start
+     *   in the scheduled state instead of being actively running right away, under the system's own
+     *   discretion. Processing will revert back to the scheduled state while the device has no
+     *   active network connection available.
      *
      * Using the [observeProcessingState] method you may observe a future transition from the
      *   [CallProcessingScheduled] state into the [CallProcessingStarted] state when processing does
-     *   indeed start executing in the background.
+     *   indeed start executing in the background, as well as a transition from
+     *   [CallProcessingStarted] back to [CallProcessingScheduled] if the call processing is once
+     *   again suspended by the system e.g. while there's no active network connection available.
      *
      * Processing may be stopped with [stopProcessing].
      */
@@ -40,8 +45,14 @@ interface CallProcessorApi {
      * While call processing is ongoing, it also emits [CallProcessingFailed] if a failure is
      *   detected that suddenly halts call processing.
      *
-     * It also emits [CallProcessingScheduled] if the system does not honor the call processing
-     *   startup request immediately, meaning it may start it only sometime in the future.
+     * [CallProcessingScheduled] is emitted when the call processing is scheduled but not currently
+     *   executing. Call background processing is paused and sent back to the scheduled state by
+     *   the system while the device is currently with no active network connection enabled.
+     *
+     * It is possible for the system to not immediately start call processing from the
+     *   [startProcessing] method e.g. if the system is under heavy load and/or the call processing
+     *   work quota is depleted (in which case some time has to pass until it refreshes again) -
+     *   under such conditions, [CallProcessingScheduled] is also emitted signaling this.
      */
     fun observeProcessingState(): Observable<CallProcessingState>
 

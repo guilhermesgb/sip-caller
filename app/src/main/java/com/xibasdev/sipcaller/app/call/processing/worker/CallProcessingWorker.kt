@@ -46,7 +46,24 @@ class CallProcessingWorker @AssistedInject constructor(
             .andThen(
                 Single.create { emitter ->
 
-                    Log.d(TAG, "Starting Linphone...")
+                    when (linphoneCore.globalState) {
+                        Startup,
+                        Configuring,
+                        On -> {
+                            Log.d(TAG, "Linphone already started.")
+                            emitter.onSuccess(Result.success())
+                            return@create
+                        }
+                        Shutdown,
+                        Off -> {
+                            Log.e(TAG, "Failed to start Linphone core;" +
+                                    " core not ready!")
+
+                            emitter.onSuccess(Result.failure())
+                            return@create
+                        }
+                        Ready -> Log.d(TAG, "Starting Linphone...")
+                    }
 
                     val globalStateChangeListener: CoreListener = object : CoreListenerStub() {
                         override fun onGlobalStateChanged(
@@ -68,7 +85,7 @@ class CallProcessingWorker @AssistedInject constructor(
                                 Off,
                                 Shutdown,
                                 null -> {
-                                    Log.e(TAG, "Failed to startup Linphone core;" +
+                                    Log.e(TAG, "Failed to start Linphone core;" +
                                             " transitioned to state: $state!")
 
                                     linphoneCore.removeListener(this)
@@ -83,7 +100,7 @@ class CallProcessingWorker @AssistedInject constructor(
                     val startupCode = linphoneCore.start()
 
                     if (startupCode != 0) {
-                        Log.e(TAG, "Failed to startup Linphone core;" +
+                        Log.e(TAG, "Failed to start Linphone core;" +
                                 " startup code: $startupCode!")
 
                         linphoneCore.removeListener(globalStateChangeListener)

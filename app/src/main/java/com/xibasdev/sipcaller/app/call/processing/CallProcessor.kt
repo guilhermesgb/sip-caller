@@ -99,61 +99,70 @@ class CallProcessor @Inject constructor(
     }
 
     private fun BehaviorSubject<CallProcessingState>.monitorProcessingStateUpdates() {
-        switchMap { callProcessingState ->
+        distinctUntilChanged()
+            .switchMap { callProcessingState ->
 
-            when (callProcessingState) {
-                CallProcessingScheduled,
-                CallProcessingStarted -> Observable
-                    .interval(250, MILLISECONDS)
-                    .doOnSubscribe {
-                        Log.d(TAG, "Started monitoring " +
-                                if (callProcessingState == CallProcessingScheduled) {
-                                    "a pending"
+                when (callProcessingState) {
+                    CallProcessingScheduled,
+                    CallProcessingStarted -> Observable
+                        .interval(250, MILLISECONDS)
+                        .doOnSubscribe {
+                            Log.d(TAG, "Started monitoring " +
+                                    if (callProcessingState == CallProcessingScheduled) {
+                                        "a pending"
 
-                                } else {
-                                    "an ongoing"
-                                }
-                                + " call processing..."
-                        )
-                    }
-                    .map {
-                        val workInfoList = WorkManager.getInstance(context)
-                            .getWorkInfosForUniqueWork(UNIQUE_WORK_NAME)
-                            .get()
+                                    } else {
+                                        "an ongoing"
+                                    }
+                                    + " call processing..."
+                            )
+                        }
+                        .map {
+                            val workInfoList = WorkManager.getInstance(context)
+                                .getWorkInfosForUniqueWork(UNIQUE_WORK_NAME)
+                                .get()
 
-                        if (workInfoList.isEmpty()) {
-                            Log.e(TAG, "Processing fail - work not found!")
+                            if (workInfoList.isEmpty()) {
+                                Log.e(TAG, "Processing fail - work not found!")
 
-                            val error = IllegalStateException("Processing work not found.")
-                            callStateNotifier.notifyProcessingFailed(error)
-                            CallProcessingFailed(error)
-
-                        } else when (val processingState = workInfoList.first().state) {
-                            ENQUEUED -> {
-                                Log.d(TAG, "Processing is still pending...")
-
-                                CallProcessingScheduled
-                            }
-                            RUNNING -> {
-                                Log.d(TAG, "Processing is still ongoing...")
-
-                                CallProcessingStarted
-                            }
-                            else -> {
-                                Log.e(TAG, "Processing fail - work state: $processingState!")
-
-                                val error = Exception(
-                                    "Processing not running; " +
-                                            "system reported state: $processingState!"
-                                )
+                                val error = IllegalStateException("Processing work not found.")
                                 callStateNotifier.notifyProcessingFailed(error)
                                 CallProcessingFailed(error)
+
+                            } else when (val processingState = workInfoList.first().state) {
+                                ENQUEUED -> {
+                                    Log.d(TAG, "Processing is still pending...")
+
+                                    CallProcessingScheduled.also {
+                                        onNext(it)
+                                    }
+                                }
+                                RUNNING -> {
+                                    Log.d(TAG, "Processing is still ongoing...")
+
+                                    CallProcessingStarted.also {
+                                        onNext(it)
+                                    }
+                                }
+                                else -> {
+                                    Log.e(TAG, "Processing fail - work state: $processingState!")
+
+                                    val error = Exception(
+                                        "Processing not running; " +
+                                                "system reported state: $processingState!"
+                                    )
+                                    callStateNotifier.notifyProcessingFailed(error)
+                                    CallProcessingFailed(error).also {
+                                        onNext(it)
+                                    }
+                                }
                             }
                         }
-                    }
-                CallProcessingStopped,
-                is CallProcessingFailed -> Observable.just(callProcessingState)
+                    CallProcessingStopped,
+                    is CallProcessingFailed -> Observable.just(callProcessingState)
+                }
             }
-        }.subscribe().addTo(disposables)
+            .subscribe()
+            .addTo(disposables)
     }
 }
