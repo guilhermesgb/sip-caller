@@ -45,8 +45,6 @@ class CallProcessingWorker @AssistedInject constructor(
     }
 
     private fun createForegroundInfo(): ForegroundInfo {
-        callStateNotifier.createNotificationChannelIfApplicable()
-
         val notificationInfo = callStateNotifier.getNotificationInfoForProcessingStarted()
 
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {

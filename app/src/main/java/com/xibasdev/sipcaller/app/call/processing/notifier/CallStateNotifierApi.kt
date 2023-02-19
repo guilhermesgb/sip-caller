@@ -10,13 +10,6 @@ import android.app.Notification
 interface CallStateNotifierApi {
 
     /**
-     * Create a notification channel to be used for all call processing-related notifications.
-     *
-     * If the notification channel already exists, this is a no-op.
-     */
-    fun createNotificationChannelIfApplicable()
-
-    /**
      * To be used when call processing is started.
      *
      * Return a [NotificationInfo] to be associated with the foreground service encompassing
