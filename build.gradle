@@ -3,8 +3,10 @@ buildscript {
         sip_caller_version = "0.0.0"
 
         android_gradle_plugin_version = "7.4.0"
-        dagger_hilt_version = "2.45"
+        lifecycle_version = "2.5.1"
+        compose_version = "1.3.3"
         work_manager_version = "2.8.0"
+        dagger_hilt_version = "2.45"
     }
 }
 

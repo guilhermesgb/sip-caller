@@ -2,10 +2,18 @@ package com.xibasdev.sipcaller.app
 
 import android.content.Context
 import android.util.Log
+import androidx.work.Constraints
+import androidx.work.NetworkType.CONNECTED
+import androidx.work.OneTimeWorkRequest
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST
 import com.xibasdev.sipcaller.BuildConfig
 import com.xibasdev.sipcaller.R
-import com.xibasdev.sipcaller.app.call.processing.CallProcessing
-import com.xibasdev.sipcaller.app.call.processing.CallProcessingApi
+import com.xibasdev.sipcaller.app.call.processing.CallProcessor
+import com.xibasdev.sipcaller.app.call.processing.CallProcessorApi
+import com.xibasdev.sipcaller.app.call.processing.notifier.CallStateNotifier
+import com.xibasdev.sipcaller.app.call.processing.notifier.CallStateNotifierApi
+import com.xibasdev.sipcaller.app.call.processing.worker.CallProcessingWorker
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -23,6 +31,8 @@ import org.linphone.core.Core
 import org.linphone.core.Factory
 
 private const val TAG = "SipCallerAppModule"
+
+typealias LinphoneCore = Core
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -94,7 +104,7 @@ class SipCallerAppModule {
         @Named("LinphoneRootCertificate") rootCertificateFileName: String,
         @Named("LinphoneRingTone") ringToneFileName: String,
         @Named("LinphoneOnHoldTone") onHoldToneFileName: String
-    ): Core {
+    ): LinphoneCore {
 
         return Single
             .fromCallable {
@@ -161,11 +171,26 @@ class SipCallerAppModule {
     }
 
     @Provides
-    fun provideCallProcessingApi(
-        @ApplicationContext context: Context
-    ): CallProcessingApi {
+    @Singleton
+    fun bindCallStateNotifier(
+        callStateNotifier: CallStateNotifier
+    ): CallStateNotifierApi {
+        return callStateNotifier
+    }
 
-        return CallProcessing()
+    @Provides
+    @Named("CallProcessing")
+    fun provideCallProcessingWorkRequest(): OneTimeWorkRequest {
+        return OneTimeWorkRequestBuilder<CallProcessingWorker>()
+            .setExpedited(RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(CONNECTED).build())
+            .build()
+    }
+
+    @Provides
+    @Singleton
+    fun bindCallProcessor(callProcessor: CallProcessor): CallProcessorApi {
+        return callProcessor
     }
 
     private fun initializeFileFromRawResourceForLinphone(
