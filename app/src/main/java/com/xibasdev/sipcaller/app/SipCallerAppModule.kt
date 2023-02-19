@@ -180,7 +180,7 @@ class SipCallerAppModule {
 
     @Provides
     @Named("CallProcessing")
-    fun provideCallProcessingWorkRequest(): OneTimeWorkRequest {
+    fun provideStartCallProcessingWorkRequest(): OneTimeWorkRequest {
         return OneTimeWorkRequestBuilder<CallProcessingWorker>()
             .setExpedited(RUN_AS_NON_EXPEDITED_WORK_REQUEST)
             .setConstraints(Constraints.Builder().setRequiredNetworkType(CONNECTED).build())

@@ -10,7 +10,7 @@ import com.xibasdev.sipcaller.R
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
-private const val NOTIFICATION_CHANNEL_ID = "CallProcessorContext"
+private const val NOTIFICATION_CHANNEL_ID = "CallStateNotifier"
 private const val NOTIFICATION_ID_PROCESSING_STARTED = 0
 private const val NOTIFICATION_ID_PROCESSING_START_FAILED = 1
 private const val NOTIFICATION_ID_PROCESSING_FAILED = 2

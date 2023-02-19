@@ -26,7 +26,7 @@ private const val UNIQUE_WORK_NAME = "CallProcessing"
 class CallProcessor @Inject constructor(
     @ApplicationContext private val context: Context,
     private val callStateNotifier: CallStateNotifierApi,
-    @Named("CallProcessing") private val workRequest: OneTimeWorkRequest,
+    @Named("CallProcessing") private val startCallProcessingWorkRequest: OneTimeWorkRequest,
     workerFactory: CallProcessingWorkerFactory
 ) : CallProcessorApi {
 
@@ -48,18 +48,22 @@ class CallProcessor @Inject constructor(
             Log.d(TAG, "Starting calls processing...")
 
             val operation = WorkManager.getInstance(context)
-                .enqueueUniqueWork(UNIQUE_WORK_NAME, REPLACE, workRequest)
+                .enqueueUniqueWork(UNIQUE_WORK_NAME, REPLACE, startCallProcessingWorkRequest)
 
             try {
                 operation.result.get()
                 callProcessingStateUpdates.onNext(CallProcessingStarted)
                 emitter.onComplete()
 
+                Log.d(TAG, "Calls processing started.")
+
             } catch (error: Throwable) {
 
                 callStateNotifier.notifyProcessingStartFailed(error)
                 callProcessingStateUpdates.onNext(CallProcessingFailed(error))
                 emitter.onError(error)
+
+                Log.e(TAG, "Calls processing failed to start!", error)
             }
         }
     }
@@ -81,11 +85,15 @@ class CallProcessor @Inject constructor(
                 callProcessingStateUpdates.onNext(CallProcessingStopped)
                 emitter.onComplete()
 
+                Log.d(TAG, "Calls processing stopped.")
+
             } catch (error: Throwable) {
 
                 callStateNotifier.notifyProcessingStopFailed(error)
                 callProcessingStateUpdates.onNext(CallProcessingFailed(error))
                 emitter.onError(error)
+
+                Log.e(TAG, "Calls processing failed to stop!", error)
             }
         }
     }
@@ -94,8 +102,20 @@ class CallProcessor @Inject constructor(
         switchMap { callProcessingState ->
 
             when (callProcessingState) {
+                CallProcessingScheduled,
                 CallProcessingStarted -> Observable
                     .interval(250, MILLISECONDS)
+                    .doOnSubscribe {
+                        Log.d(TAG, "Started monitoring " +
+                                if (callProcessingState == CallProcessingScheduled) {
+                                    "a pending"
+
+                                } else {
+                                    "an ongoing"
+                                }
+                                + " call processing..."
+                        )
+                    }
                     .map {
                         val workInfoList = WorkManager.getInstance(context)
                             .getWorkInfosForUniqueWork(UNIQUE_WORK_NAME)
@@ -108,15 +128,18 @@ class CallProcessor @Inject constructor(
                             callStateNotifier.notifyProcessingFailed(error)
                             CallProcessingFailed(error)
 
-                        } else {
-                            val processingState = workInfoList.first().state
+                        } else when (val processingState = workInfoList.first().state) {
+                            ENQUEUED -> {
+                                Log.d(TAG, "Processing is still pending...")
 
-                            if (processingState == ENQUEUED || processingState == RUNNING) {
+                                CallProcessingScheduled
+                            }
+                            RUNNING -> {
                                 Log.d(TAG, "Processing is still ongoing...")
 
                                 CallProcessingStarted
-
-                            } else {
+                            }
+                            else -> {
                                 Log.e(TAG, "Processing fail - work state: $processingState!")
 
                                 val error = Exception(
