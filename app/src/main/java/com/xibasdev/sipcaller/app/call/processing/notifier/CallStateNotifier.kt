@@ -1,0 +1,84 @@
+package com.xibasdev.sipcaller.app.call.processing.notifier
+
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
+import android.os.Build
+import androidx.annotation.RequiresApi
+import androidx.core.app.NotificationCompat
+import com.xibasdev.sipcaller.R
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+
+private const val NOTIFICATION_CHANNEL_ID = "CallProcessorContext"
+private const val NOTIFICATION_ID_PROCESSING_STARTED = 0
+private const val NOTIFICATION_ID_PROCESSING_START_FAILED = 1
+private const val NOTIFICATION_ID_PROCESSING_FAILED = 2
+private const val NOTIFICATION_ID_PROCESSING_STOP_FAILED = 3
+
+class CallStateNotifier @Inject constructor(
+    @ApplicationContext private val context: Context
+) : CallStateNotifierApi {
+
+    private val notificationManager = context
+        .getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+    override fun createNotificationChannelIfApplicable() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (isNotificationChannelNotCreatedYet()) {
+                val channel = NotificationChannel(
+                    NOTIFICATION_CHANNEL_ID,
+                    context.getString(R.string.app_name),
+                    NotificationManager.IMPORTANCE_HIGH
+                )
+
+                notificationManager.createNotificationChannel(channel)
+            }
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun isNotificationChannelNotCreatedYet() =
+        notificationManager.notificationChannels.none { it.id == NOTIFICATION_CHANNEL_ID }
+
+    override fun getNotificationInfoForProcessingStarted(): NotificationInfo {
+        return Pair(
+            NOTIFICATION_ID_PROCESSING_STARTED,
+            NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_ID)
+                .setSmallIcon(androidx.core.R.drawable.notification_bg)
+                .setContentText("SIP Caller is standby.")
+                .setOngoing(true)
+                .build()
+        )
+    }
+
+    override fun notifyProcessingStartFailed(error: Throwable) {
+        notificationManager.notify(
+            NOTIFICATION_ID_PROCESSING_START_FAILED,
+            NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_ID)
+                .setSmallIcon(androidx.core.R.drawable.notification_bg)
+                .setContentText("SIP Caller failed to start. Reason: ${error.message}")
+                .build()
+        )
+    }
+
+    override fun notifyProcessingFailed(error: Throwable) {
+        notificationManager.notify(
+            NOTIFICATION_ID_PROCESSING_FAILED,
+            NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_ID)
+                .setSmallIcon(androidx.core.R.drawable.notification_bg)
+                .setContentText("SIP Caller processing failed. Reason: ${error.message}")
+                .build()
+        )
+    }
+
+    override fun notifyProcessingStopFailed(error: Throwable) {
+        notificationManager.notify(
+            NOTIFICATION_ID_PROCESSING_STOP_FAILED,
+            NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_ID)
+                .setSmallIcon(androidx.core.R.drawable.notification_bg)
+                .setContentText("SIP Caller failed to stop. Reason: ${error.message}")
+                .build()
+        )
+    }
+}

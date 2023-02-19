@@ -1,0 +1,16 @@
+buildscript {
+    ext {
+        sip_caller_version = "0.0.0"
+
+        android_gradle_plugin_version = "7.4.0"
+        dagger_hilt_version = "2.45"
+        work_manager_version = "2.8.0"
+    }
+}
+
+plugins {
+    id 'com.android.application' version "$android_gradle_plugin_version" apply false
+    id 'com.android.library' version "$android_gradle_plugin_version" apply false
+    id 'org.jetbrains.kotlin.android' version '1.7.21' apply false
+    id 'com.google.dagger.hilt.android' version "$dagger_hilt_version" apply false
+}
