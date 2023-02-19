@@ -1,10 +1,12 @@
 package com.xibasdev.sipcaller.app.call.processing
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.work.OneTimeWorkRequest
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
 import com.xibasdev.sipcaller.app.FakeWorkManagerInitializer
 import com.xibasdev.sipcaller.app.WorkManagerInitializerApi
-import com.xibasdev.sipcaller.app.call.processing.notifier.CallStateNotifier
-import com.xibasdev.sipcaller.app.call.processing.notifier.CallStateNotifierApi
+import com.xibasdev.sipcaller.app.call.processing.worker.CallProcessingWorker
 import com.xibasdev.sipcaller.sip.FakeSipEngine
 import com.xibasdev.sipcaller.sip.SipEngineApi
 import com.xibasdev.sipcaller.test.Completable.andThenAfterDelay
@@ -14,12 +16,14 @@ import com.xibasdev.sipcaller.test.Observable.prepareInBackgroundAndWaitUpToTime
 import com.xibasdev.sipcaller.test.waitUpToTimeout
 import dagger.Binds
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.UninstallModules
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
 import org.junit.After
 import org.junit.Before
@@ -28,7 +32,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 @HiltAndroidTest
-@UninstallModules(CallProcessorDependenciesModule::class)
+@UninstallModules(CallProcessorDependenciesModule::class, CallProcessingWorkerModule::class)
 @RunWith(AndroidJUnit4::class)
 class CallProcessorTest {
 
@@ -45,10 +49,18 @@ class CallProcessorTest {
         @Binds
         @Singleton
         fun bindSipEngine(sipEngine: FakeSipEngine): SipEngineApi
+    }
 
-        @Binds
-        @Singleton
-        fun bindCallStateNotifier(callStateNotifier: CallStateNotifier): CallStateNotifierApi
+    @Module
+    @InstallIn(SingletonComponent::class)
+    class TestCallProcessingWorkerModule {
+        @Provides
+        @Named("CallProcessing")
+        fun provideStartCallProcessingWorkRequest(): OneTimeWorkRequest {
+            return OneTimeWorkRequestBuilder<CallProcessingWorker>()
+                .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                .build()
+        }
     }
 
     @get:Rule
