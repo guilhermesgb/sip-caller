@@ -1,4 +1,4 @@
-package com.xibasdev.sipcaller.app.call.processing.notifier
+package com.xibasdev.sipcaller.processing.notifier
 
 import android.app.NotificationChannel
 import android.app.NotificationManager

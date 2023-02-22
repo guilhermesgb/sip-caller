@@ -3,7 +3,7 @@ package com.xibasdev.sipcaller.app
 import android.content.Context
 import androidx.work.Configuration
 import androidx.work.testing.WorkManagerTestInitHelper
-import com.xibasdev.sipcaller.app.call.processing.worker.CallProcessingWorkerFactory
+import com.xibasdev.sipcaller.processing.worker.CallProcessingWorkerFactory
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 

@@ -1,4 +1,4 @@
-package com.xibasdev.sipcaller.app.call.processing
+package com.xibasdev.sipcaller.processing
 
 sealed interface CallProcessingState
 

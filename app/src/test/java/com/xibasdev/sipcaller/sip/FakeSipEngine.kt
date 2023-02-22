@@ -1,6 +1,6 @@
 package com.xibasdev.sipcaller.sip
 
-import com.xibasdev.sipcaller.app.call.processing.worker.CALL_PROCESSING_RATE_MS
+import com.xibasdev.sipcaller.processing.worker.CALL_PROCESSING_RATE_MS
 import io.reactivex.rxjava3.core.Completable
 import javax.inject.Inject
 

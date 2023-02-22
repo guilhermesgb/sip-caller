@@ -1,10 +1,12 @@
-package com.xibasdev.sipcaller.app.call.processing.worker
+package com.xibasdev.sipcaller.processing.worker
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.work.testing.TestListenableWorkerBuilder
-import com.xibasdev.sipcaller.app.call.processing.notifier.CallStateNotifier
+import com.xibasdev.sipcaller.processing.notifier.CallStateNotifier
+import com.xibasdev.sipcaller.processing.worker.CallProcessingWorker
+import com.xibasdev.sipcaller.processing.worker.CallProcessingWorkerFactory
 import com.xibasdev.sipcaller.sip.FakeSipEngine
 import com.xibasdev.sipcaller.test.Single.prepareInBackgroundAndWaitUpToTimeout
 import io.reactivex.rxjava3.schedulers.Schedulers

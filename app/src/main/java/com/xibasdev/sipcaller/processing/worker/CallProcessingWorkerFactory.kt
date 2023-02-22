@@ -1,10 +1,10 @@
-package com.xibasdev.sipcaller.app.call.processing.worker
+package com.xibasdev.sipcaller.processing.worker
 
 import android.content.Context
 import androidx.work.ListenableWorker
 import androidx.work.WorkerFactory
 import androidx.work.WorkerParameters
-import com.xibasdev.sipcaller.app.call.processing.notifier.CallStateNotifierApi
+import com.xibasdev.sipcaller.processing.notifier.CallStateNotifierApi
 import com.xibasdev.sipcaller.sip.SipEngineApi
 import io.reactivex.rxjava3.core.Scheduler
 import javax.inject.Inject

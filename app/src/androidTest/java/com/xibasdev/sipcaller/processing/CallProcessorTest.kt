@@ -1,4 +1,4 @@
-package com.xibasdev.sipcaller.app.call.processing
+package com.xibasdev.sipcaller.processing
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.work.OneTimeWorkRequest
@@ -6,9 +6,12 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import com.xibasdev.sipcaller.app.FakeWorkManagerInitializer
 import com.xibasdev.sipcaller.app.WorkManagerInitializerApi
-import com.xibasdev.sipcaller.app.call.processing.di.CallProcessingWorkerModule
-import com.xibasdev.sipcaller.app.call.processing.di.CallProcessorDependenciesModule
-import com.xibasdev.sipcaller.app.call.processing.worker.CallProcessingWorker
+import com.xibasdev.sipcaller.processing.CallProcessingStarted
+import com.xibasdev.sipcaller.processing.CallProcessingStopped
+import com.xibasdev.sipcaller.processing.di.CallProcessingWorkerModule
+import com.xibasdev.sipcaller.processing.di.CallProcessorDependenciesModule
+import com.xibasdev.sipcaller.processing.worker.CallProcessingWorker
+import com.xibasdev.sipcaller.processing.CallProcessor
 import com.xibasdev.sipcaller.sip.FakeSipEngine
 import com.xibasdev.sipcaller.sip.SipEngineApi
 import com.xibasdev.sipcaller.test.Completable.andThenAfterDelay

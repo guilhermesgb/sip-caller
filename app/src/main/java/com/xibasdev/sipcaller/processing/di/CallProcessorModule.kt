@@ -1,9 +1,9 @@
-package com.xibasdev.sipcaller.app.call.processing.di
+package com.xibasdev.sipcaller.processing.di
 
-import com.xibasdev.sipcaller.app.call.processing.CallProcessor
-import com.xibasdev.sipcaller.app.call.processing.CallProcessorApi
-import com.xibasdev.sipcaller.app.call.processing.notifier.CallStateNotifier
-import com.xibasdev.sipcaller.app.call.processing.notifier.CallStateNotifierApi
+import com.xibasdev.sipcaller.processing.CallProcessor
+import com.xibasdev.sipcaller.processing.CallProcessorApi
+import com.xibasdev.sipcaller.processing.notifier.CallStateNotifier
+import com.xibasdev.sipcaller.processing.notifier.CallStateNotifierApi
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn

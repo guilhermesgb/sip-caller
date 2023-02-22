@@ -1,11 +1,11 @@
-package com.xibasdev.sipcaller.app.call.processing.di
+package com.xibasdev.sipcaller.processing.di
 
 import androidx.work.Constraints
 import androidx.work.NetworkType.CONNECTED
 import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
-import com.xibasdev.sipcaller.app.call.processing.worker.CallProcessingWorker
+import com.xibasdev.sipcaller.processing.worker.CallProcessingWorker
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

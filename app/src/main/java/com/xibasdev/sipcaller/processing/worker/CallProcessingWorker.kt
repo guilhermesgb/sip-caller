@@ -1,4 +1,4 @@
-package com.xibasdev.sipcaller.app.call.processing.worker
+package com.xibasdev.sipcaller.processing.worker
 
 import android.content.Context
 import android.content.pm.ServiceInfo
@@ -9,9 +9,9 @@ import androidx.work.ForegroundInfo
 import androidx.work.ListenableWorker.Result.Failure
 import androidx.work.WorkerParameters
 import androidx.work.rxjava3.RxWorker
-import com.xibasdev.sipcaller.app.call.processing.notifier.CallStateNotifierApi
-import com.xibasdev.sipcaller.app.call.processing.notifier.getNotification
-import com.xibasdev.sipcaller.app.call.processing.notifier.getNotificationId
+import com.xibasdev.sipcaller.processing.notifier.CallStateNotifierApi
+import com.xibasdev.sipcaller.processing.notifier.getNotification
+import com.xibasdev.sipcaller.processing.notifier.getNotificationId
 import com.xibasdev.sipcaller.sip.SipEngineApi
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject

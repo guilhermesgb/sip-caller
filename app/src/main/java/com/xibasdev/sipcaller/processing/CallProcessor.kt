@@ -1,4 +1,4 @@
-package com.xibasdev.sipcaller.app.call.processing
+package com.xibasdev.sipcaller.processing
 
 import android.content.Context
 import android.util.Log
@@ -8,7 +8,7 @@ import androidx.work.WorkInfo.State.ENQUEUED
 import androidx.work.WorkInfo.State.RUNNING
 import androidx.work.WorkManager
 import com.xibasdev.sipcaller.app.WorkManagerInitializerApi
-import com.xibasdev.sipcaller.app.call.processing.notifier.CallStateNotifierApi
+import com.xibasdev.sipcaller.processing.notifier.CallStateNotifierApi
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.reactivex.rxjava3.core.Completable
 import io.reactivex.rxjava3.core.Observable
