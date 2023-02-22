@@ -6,12 +6,9 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import com.xibasdev.sipcaller.app.FakeWorkManagerInitializer
 import com.xibasdev.sipcaller.app.WorkManagerInitializerApi
-import com.xibasdev.sipcaller.processing.CallProcessingStarted
-import com.xibasdev.sipcaller.processing.CallProcessingStopped
 import com.xibasdev.sipcaller.processing.di.CallProcessingWorkerModule
 import com.xibasdev.sipcaller.processing.di.CallProcessorDependenciesModule
 import com.xibasdev.sipcaller.processing.worker.CallProcessingWorker
-import com.xibasdev.sipcaller.processing.CallProcessor
 import com.xibasdev.sipcaller.sip.FakeSipEngine
 import com.xibasdev.sipcaller.sip.SipEngineApi
 import com.xibasdev.sipcaller.test.Completable.andThenAfterDelay
@@ -81,7 +78,7 @@ class CallProcessorTest {
 
     @Test
     fun initialProcessingStateIsStopped() {
-        val observable = callProcessor.observeProcessingState()
+        val observable = callProcessor.observeProcessing()
             .prepareInBackgroundAndWaitUpToTimeout()
 
         observable.assertNotComplete()
@@ -99,7 +96,7 @@ class CallProcessorTest {
 
     @Test
     fun processingStateTransitionsFromStoppedToStarted() {
-        val observable = callProcessor.observeProcessingState()
+        val observable = callProcessor.observeProcessing()
             .prepareInBackground()
 
         callProcessor.startProcessing()
@@ -124,7 +121,7 @@ class CallProcessorTest {
 
     @Test
     fun subsequentProcessingStartsDoNotImpactObservableProcessingState() {
-        val observable = callProcessor.observeProcessingState()
+        val observable = callProcessor.observeProcessing()
             .prepareInBackground()
 
         callProcessor.startProcessing()
@@ -150,7 +147,7 @@ class CallProcessorTest {
 
     @Test
     fun processingStateTransitionsFromStartedToStopped() {
-        val observable = callProcessor.observeProcessingState()
+        val observable = callProcessor.observeProcessing()
             .prepareInBackground()
 
         callProcessor.startProcessing()
@@ -178,7 +175,7 @@ class CallProcessorTest {
 
     @Test
     fun subsequentProcessingStopsDoNotImpactObservableProcessingState() {
-        val observable = callProcessor.observeProcessingState()
+        val observable = callProcessor.observeProcessing()
             .prepareInBackground()
 
         callProcessor.startProcessing()
@@ -207,7 +204,7 @@ class CallProcessorTest {
 
     @Test
     fun processingStateTransitionsFromStoppedToStartedOnceAgain() {
-        val observable = callProcessor.observeProcessingState()
+        val observable = callProcessor.observeProcessing()
             .prepareInBackground()
 
         callProcessor.startProcessing()

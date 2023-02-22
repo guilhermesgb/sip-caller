@@ -8,6 +8,11 @@ import androidx.work.WorkInfo.State.ENQUEUED
 import androidx.work.WorkInfo.State.RUNNING
 import androidx.work.WorkManager
 import com.xibasdev.sipcaller.app.WorkManagerInitializerApi
+import com.xibasdev.sipcaller.dto.CallProcessing
+import com.xibasdev.sipcaller.dto.CallProcessingFailed
+import com.xibasdev.sipcaller.dto.CallProcessingStarted
+import com.xibasdev.sipcaller.dto.CallProcessingStopped
+import com.xibasdev.sipcaller.dto.CallProcessingSuspended
 import com.xibasdev.sipcaller.processing.notifier.CallStateNotifierApi
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.reactivex.rxjava3.core.Completable
@@ -36,8 +41,8 @@ class CallProcessor @Inject constructor(
 
     private val disposables = CompositeDisposable()
 
-    private val callProcessingStateUpdates = BehaviorSubject.create<CallProcessingState>().apply {
-            onNext(CallProcessingStopped)
+    private val callProcessingUpdates = BehaviorSubject
+        .createDefault<CallProcessing>(CallProcessingStopped).apply {
             monitorProcessingStateUpdates()
         }
 
@@ -51,7 +56,7 @@ class CallProcessor @Inject constructor(
 
             try {
                 operation.result.get()
-                callProcessingStateUpdates.onNext(CallProcessingStarted)
+                callProcessingUpdates.onNext(CallProcessingStarted)
                 emitter.onComplete()
 
                 Log.d(TAG, "Calls processing started.")
@@ -59,7 +64,7 @@ class CallProcessor @Inject constructor(
             } catch (error: Throwable) {
 
                 callStateNotifier.notifyProcessingStartFailed(error)
-                callProcessingStateUpdates.onNext(CallProcessingFailed(error))
+                callProcessingUpdates.onNext(CallProcessingFailed(error))
                 emitter.onError(error)
 
                 Log.e(TAG, "Calls processing failed to start!", error)
@@ -67,8 +72,8 @@ class CallProcessor @Inject constructor(
         }
     }
 
-    override fun observeProcessingState(): Observable<CallProcessingState> {
-        return callProcessingStateUpdates.distinctUntilChanged()
+    override fun observeProcessing(): Observable<CallProcessing> {
+        return callProcessingUpdates.distinctUntilChanged()
     }
 
     override fun stopProcessing(): Completable {
@@ -81,7 +86,7 @@ class CallProcessor @Inject constructor(
 
             try {
                 operation.result.get()
-                callProcessingStateUpdates.onNext(CallProcessingStopped)
+                callProcessingUpdates.onNext(CallProcessingStopped)
                 emitter.onComplete()
 
                 Log.d(TAG, "Calls processing stopped.")
@@ -89,7 +94,7 @@ class CallProcessor @Inject constructor(
             } catch (error: Throwable) {
 
                 callStateNotifier.notifyProcessingStopFailed(error)
-                callProcessingStateUpdates.onNext(CallProcessingFailed(error))
+                callProcessingUpdates.onNext(CallProcessingFailed(error))
                 emitter.onError(error)
 
                 Log.e(TAG, "Calls processing failed to stop!", error)
@@ -97,7 +102,7 @@ class CallProcessor @Inject constructor(
         }
     }
 
-    private fun BehaviorSubject<CallProcessingState>.monitorProcessingStateUpdates() {
+    private fun BehaviorSubject<CallProcessing>.monitorProcessingStateUpdates() {
         distinctUntilChanged()
             .switchMap { callProcessingState ->
 
