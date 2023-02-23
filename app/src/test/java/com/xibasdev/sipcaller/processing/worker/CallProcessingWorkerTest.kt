@@ -5,11 +5,10 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.work.testing.TestListenableWorkerBuilder
 import com.xibasdev.sipcaller.processing.notifier.CallStateNotifier
-import com.xibasdev.sipcaller.processing.worker.CallProcessingWorker
-import com.xibasdev.sipcaller.processing.worker.CallProcessingWorkerFactory
 import com.xibasdev.sipcaller.sip.FakeSipEngine
 import com.xibasdev.sipcaller.test.Single.prepareInBackgroundAndWaitUpToTimeout
 import io.reactivex.rxjava3.schedulers.Schedulers
+import java.util.concurrent.TimeUnit.SECONDS
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -37,7 +36,7 @@ class CallProcessingWorkerTest {
     @Test
     fun `call processing worker is able to start and execute indefinitely`() {
         val single = callProcessingWorker.createWork()
-            .prepareInBackgroundAndWaitUpToTimeout()
+            .prepareInBackgroundAndWaitUpToTimeout(timeoutDuration = 10, timeoutUnit = SECONDS)
 
         single.assertNotComplete()
         single.assertNoValues()

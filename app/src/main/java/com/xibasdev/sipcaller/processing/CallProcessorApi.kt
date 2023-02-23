@@ -1,6 +1,6 @@
 package com.xibasdev.sipcaller.processing
 
-import com.xibasdev.sipcaller.dto.CallProcessing
+import com.xibasdev.sipcaller.dto.processing.CallProcessing
 import io.reactivex.rxjava3.core.Completable
 import io.reactivex.rxjava3.core.Observable
 
@@ -28,12 +28,13 @@ interface CallProcessorApi {
      *   active network connection available.
      *
      * Using the [observeProcessing] method you may observe a future transition from the
-     *   [com.xibasdev.sipcaller.dto.CallProcessingSuspended] state into the
-     *   [com.xibasdev.sipcaller.dto.CallProcessingStarted] state when processing does indeed start
-     *   executing in the background, as well as a transition from
-     *   [com.xibasdev.sipcaller.dto.CallProcessingStarted] back to
-     *   [com.xibasdev.sipcaller.dto.CallProcessingSuspended] if the call processing is once again
-     *   suspended by the system e.g. while there's no active network connection available.
+     *   [com.xibasdev.sipcaller.dto.processing.CallProcessingSuspended] state into the
+     *   [com.xibasdev.sipcaller.dto.processing.CallProcessingStarted] state when processing does
+     *   indeed start executing in the background, as well as a transition from
+     *   [com.xibasdev.sipcaller.dto.processing.CallProcessingStarted] back to
+     *   [com.xibasdev.sipcaller.dto.processing.CallProcessingSuspended] if the call processing is
+     *   once again suspended by the system e.g. while there's no active network connection
+     *   available.
      *
      * Processing may be stopped with [stopProcessing].
      */
@@ -42,27 +43,27 @@ interface CallProcessorApi {
     /**
      * Observe calls processing state over time.
      *
-     * Emits [com.xibasdev.sipcaller.dto.CallProcessingStarted] when processing is started
-     *   successfully and [com.xibasdev.sipcaller.dto.CallProcessingStopped] when processing is
-     *   successfully stopped.
+     * Emits [com.xibasdev.sipcaller.dto.processing.CallProcessingStarted] when processing is
+     *   started successfully and [com.xibasdev.sipcaller.dto.processing.CallProcessingStopped] when
+     *   processing is successfully stopped.
      *
-     * It also emits [com.xibasdev.sipcaller.dto.CallProcessingFailed] if a failure to start/stop
-     *   processing occurs.
+     * It also emits [com.xibasdev.sipcaller.dto.processing.CallProcessingFailed] if a failure to
+     *   start/stop processing occurs.
      *
      * While call processing is ongoing, it also emits
-     *   [com.xibasdev.sipcaller.dto.CallProcessingFailed] if a failure is detected that suddenly
-     *   halts call processing.
+     *   [com.xibasdev.sipcaller.dto.processing.CallProcessingFailed] if a failure is detected that
+     *   suddenly halts call processing.
      *
-     * [com.xibasdev.sipcaller.dto.CallProcessingSuspended] is emitted when the call processing is
-     *   scheduled but not currently executing. Call background processing is paused and sent back
-     *   to the scheduled state by the system while the device is currently with no active network
-     *   connection enabled.
+     * [com.xibasdev.sipcaller.dto.processing.CallProcessingSuspended] is emitted when the call
+     *   processing is scheduled but not currently executing. Call background processing is paused
+     *   and sent back to the scheduled state by the system while the device is currently with no
+     *   active network connection enabled.
      *
      * It is possible for the system to not immediately start call processing from the
      *   [startProcessing] method e.g. if the system is under heavy load and/or the call processing
      *   work quota is depleted (in which case some time has to pass until it refreshes again) -
-     *   under such conditions, [com.xibasdev.sipcaller.dto.CallProcessingSuspended] is also emitted
-     *   signaling this.
+     *   under such conditions, [com.xibasdev.sipcaller.dto.processing.CallProcessingSuspended] is
+     *   also emitted signaling this.
      */
     fun observeProcessing(): Observable<CallProcessing>
 

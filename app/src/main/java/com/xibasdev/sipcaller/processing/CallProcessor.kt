@@ -8,11 +8,11 @@ import androidx.work.WorkInfo.State.ENQUEUED
 import androidx.work.WorkInfo.State.RUNNING
 import androidx.work.WorkManager
 import com.xibasdev.sipcaller.app.WorkManagerInitializerApi
-import com.xibasdev.sipcaller.dto.CallProcessing
-import com.xibasdev.sipcaller.dto.CallProcessingFailed
-import com.xibasdev.sipcaller.dto.CallProcessingStarted
-import com.xibasdev.sipcaller.dto.CallProcessingStopped
-import com.xibasdev.sipcaller.dto.CallProcessingSuspended
+import com.xibasdev.sipcaller.dto.processing.CallProcessing
+import com.xibasdev.sipcaller.dto.processing.CallProcessingFailed
+import com.xibasdev.sipcaller.dto.processing.CallProcessingStarted
+import com.xibasdev.sipcaller.dto.processing.CallProcessingStopped
+import com.xibasdev.sipcaller.dto.processing.CallProcessingSuspended
 import com.xibasdev.sipcaller.processing.notifier.CallStateNotifierApi
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.reactivex.rxjava3.core.Completable
