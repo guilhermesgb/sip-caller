@@ -1,7 +1,9 @@
 package com.xibasdev.sipcaller.sip
 
 import com.xibasdev.sipcaller.processing.worker.CALL_PROCESSING_RATE_MS
+import com.xibasdev.sipcaller.sip.history.CallHistoryUpdate
 import io.reactivex.rxjava3.core.Completable
+import io.reactivex.rxjava3.core.Observable
 import javax.inject.Inject
 
 private const val MAX_TOLERATED_PROCESSING_DELTA_MS = CALL_PROCESSING_RATE_MS * 1.1
@@ -49,5 +51,9 @@ class FakeSipEngine @Inject constructor() : SipEngineApi {
                 emitter.onComplete()
             }
         }
+    }
+
+    override fun observeCallHistory(): Observable<List<CallHistoryUpdate>> {
+        TODO("Not yet implemented")
     }
 }
