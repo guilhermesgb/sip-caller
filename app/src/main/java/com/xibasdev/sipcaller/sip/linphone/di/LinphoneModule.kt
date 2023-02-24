@@ -1,4 +1,4 @@
-package com.xibasdev.sipcaller.sip.linphone
+package com.xibasdev.sipcaller.sip.linphone.di
 
 import android.content.Context
 import android.util.Log

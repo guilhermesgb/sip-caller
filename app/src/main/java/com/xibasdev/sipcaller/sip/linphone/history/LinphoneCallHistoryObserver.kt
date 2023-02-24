@@ -22,7 +22,7 @@ import com.xibasdev.sipcaller.sip.history.CallSessionFinishedByCallee
 import com.xibasdev.sipcaller.sip.history.CallSessionFinishedByCaller
 import com.xibasdev.sipcaller.sip.history.ConditionalCallHistoryUpdate
 import com.xibasdev.sipcaller.sip.linphone.LinphoneContext
-import com.xibasdev.sipcaller.sip.linphone.LinphoneCore
+import com.xibasdev.sipcaller.sip.linphone.di.LinphoneCore
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.subjects.BehaviorSubject
 import io.reactivex.rxjava3.subjects.ReplaySubject

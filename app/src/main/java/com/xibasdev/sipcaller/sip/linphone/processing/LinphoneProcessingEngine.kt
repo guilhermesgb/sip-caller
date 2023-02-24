@@ -2,7 +2,7 @@ package com.xibasdev.sipcaller.sip.linphone.processing
 
 import android.util.Log
 import com.xibasdev.sipcaller.sip.linphone.LinphoneContext
-import com.xibasdev.sipcaller.sip.linphone.LinphoneCore
+import com.xibasdev.sipcaller.sip.linphone.di.LinphoneCore
 import com.xibasdev.sipcaller.sip.processing.ProcessingEngineApi
 import io.reactivex.rxjava3.core.Completable
 import io.reactivex.rxjava3.core.CompletableEmitter
