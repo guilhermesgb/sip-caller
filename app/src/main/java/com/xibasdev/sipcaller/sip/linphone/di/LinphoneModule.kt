@@ -4,6 +4,8 @@ import android.content.Context
 import android.util.Log
 import com.xibasdev.sipcaller.BuildConfig
 import com.xibasdev.sipcaller.R
+import com.xibasdev.sipcaller.sip.linphone.context.LinphoneContext
+import com.xibasdev.sipcaller.sip.linphone.context.LinphoneContextApi
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -158,6 +160,12 @@ class LinphoneModule {
             }
             .subscribeOn(scheduler)
             .blockingGet()
+    }
+
+    @Provides
+    @Singleton
+    fun provideLinphoneContext(linphoneCore: LinphoneCore): LinphoneContextApi {
+        return LinphoneContext(linphoneCore)
     }
 
     private fun initializeFileFromRawResourceForLinphone(

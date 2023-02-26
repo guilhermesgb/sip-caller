@@ -29,6 +29,7 @@ class CallStateNotifier @Inject constructor(
                 .setSmallIcon(androidx.core.R.drawable.notification_bg)
                 .setContentText("SIP Caller is standby.")
                 .setOngoing(true)
+                .setPriority(NotificationCompat.PRIORITY_MIN)
                 .build()
         )
     }
@@ -41,6 +42,7 @@ class CallStateNotifier @Inject constructor(
             NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_ID)
                 .setSmallIcon(androidx.core.R.drawable.notification_bg)
                 .setContentText("SIP Caller failed to start. Reason: ${error.message}")
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .build()
         )
     }
@@ -53,6 +55,7 @@ class CallStateNotifier @Inject constructor(
             NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_ID)
                 .setSmallIcon(androidx.core.R.drawable.notification_bg)
                 .setContentText("SIP Caller processing failed. Reason: ${error.message}")
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .build()
         )
     }
@@ -65,6 +68,7 @@ class CallStateNotifier @Inject constructor(
             NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_ID)
                 .setSmallIcon(androidx.core.R.drawable.notification_bg)
                 .setContentText("SIP Caller failed to stop. Reason: ${error.message}")
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .build()
         )
     }
@@ -77,6 +81,7 @@ class CallStateNotifier @Inject constructor(
             NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_ID)
                 .setSmallIcon(androidx.core.R.drawable.notification_bg)
                 .setContentText("SIP Caller processing suspended.")
+                .setPriority(NotificationCompat.PRIORITY_MIN)
                 .build()
         )
     }
@@ -87,7 +92,7 @@ class CallStateNotifier @Inject constructor(
                 val channel = NotificationChannel(
                     NOTIFICATION_CHANNEL_ID,
                     context.getString(R.string.app_name),
-                    NotificationManager.IMPORTANCE_HIGH
+                    NotificationManager.IMPORTANCE_MIN
                 )
 
                 notificationManager.createNotificationChannel(channel)

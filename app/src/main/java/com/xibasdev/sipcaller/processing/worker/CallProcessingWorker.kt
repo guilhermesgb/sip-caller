@@ -56,6 +56,7 @@ class CallProcessingWorker @AssistedInject constructor(
                             Log.d(TAG, "Executing call processing steps.")
 
                             sipEngine.processEngineSteps()
+                                .timeout(CALL_PROCESSING_RATE_MS * 4, MILLISECONDS)
                         }
                         .mapToWorkResult()
                         .doOnSuccess { processingStepsResult ->

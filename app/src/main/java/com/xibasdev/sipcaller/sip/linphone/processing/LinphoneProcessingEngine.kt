@@ -1,40 +1,43 @@
 package com.xibasdev.sipcaller.sip.linphone.processing
 
-import android.util.Log
-import com.xibasdev.sipcaller.sip.linphone.LinphoneContext
-import com.xibasdev.sipcaller.sip.linphone.di.LinphoneCore
+import com.elvishew.xlog.Logger
+import com.xibasdev.sipcaller.sip.linphone.context.LinphoneContextApi
 import com.xibasdev.sipcaller.sip.processing.ProcessingEngineApi
+import com.xibasdev.sipcaller.sip.processing.ProcessingEngineProcessingFailed
+import com.xibasdev.sipcaller.sip.processing.ProcessingEngineStartFailedAsync
+import com.xibasdev.sipcaller.sip.processing.ProcessingEngineStartFailedSync
 import io.reactivex.rxjava3.core.Completable
 import io.reactivex.rxjava3.core.CompletableEmitter
 import javax.inject.Inject
-import org.linphone.core.Core
-import org.linphone.core.CoreListener
-import org.linphone.core.CoreListenerStub
-import org.linphone.core.GlobalState
+import javax.inject.Named
+import org.linphone.core.GlobalState.Configuring
+import org.linphone.core.GlobalState.Off
+import org.linphone.core.GlobalState.On
+import org.linphone.core.GlobalState.Ready
+import org.linphone.core.GlobalState.Shutdown
+import org.linphone.core.GlobalState.Startup
 
-
-private const val TAG = "LinphoneProcessingEngine"
 
 class LinphoneProcessingEngine @Inject constructor(
-    private val linphoneCore: LinphoneCore,
-    private val linphoneContext: LinphoneContext
+    private val linphoneContext: LinphoneContextApi,
+    @Named("SipEngineLogger") private val logger: Logger
 ): ProcessingEngineApi {
 
     override fun startEngine(): Completable {
         return Completable.create { emitter ->
 
-            when (linphoneCore.globalState) {
-                GlobalState.Startup,
-                GlobalState.Configuring,
-                GlobalState.On -> {
-                    Log.d(TAG, "Linphone already started.")
+            when (linphoneContext.getCurrentGlobalState()) {
+                Startup,
+                Configuring,
+                On -> {
+                    logger.d("Linphone core already started.")
 
                     emitter.onComplete()
                 }
-                GlobalState.Shutdown,
-                GlobalState.Off,
-                GlobalState.Ready -> {
-                    Log.d(TAG, "Starting Linphone...")
+                Shutdown,
+                Off,
+                Ready -> {
+                    logger.d("Starting Linphone core...")
 
                     doStartEngine(emitter)
                 }
@@ -44,55 +47,61 @@ class LinphoneProcessingEngine @Inject constructor(
 
     override fun processEngineSteps(): Completable {
         return Completable.fromCallable {
-            Log.d(TAG, "Iterating Linphone core...")
-            linphoneCore.iterate()
+            logger.d("Iterating Linphone core...")
+
+            try {
+                linphoneContext.iterateLinphoneCore()
+
+            } catch (cause: Throwable) {
+                val errorMessage = "Failed to iterate Linphone core!"
+                val error = ProcessingEngineProcessingFailed(message = errorMessage, cause = cause)
+                logger.e(errorMessage, error)
+
+                throw error
+            }
         }
     }
 
     private fun doStartEngine(emitter: CompletableEmitter) {
-        val globalStateChangeListener: CoreListener = object : CoreListenerStub() {
-            override fun onGlobalStateChanged(
-                core: Core,
-                state: GlobalState?,
-                message: String
-            ) {
+        val globalStateChangeListenerId = linphoneContext.createGlobalStateChangeListener {
+                globalState, thisCoreListenerId, errorReason ->
 
-                when (state) {
-                    GlobalState.Startup,
-                    GlobalState.Configuring -> Log.d(TAG, "Linphone startup in progress...")
-                    GlobalState.On -> {
-                        Log.d(TAG, "Linphone startup complete!")
+            when (globalState) {
+                Startup,
+                Configuring -> {}
+                On -> {
+                    logger.d("Linphone startup complete!")
 
-                        linphoneCore.removeListener(this)
-                        emitter.onComplete()
+                    linphoneContext.disableCoreListener(thisCoreListenerId)
+                    emitter.onComplete()
 
-                        linphoneContext.updateLinphoneStarted(isStarted = true)
-                    }
-                    GlobalState.Ready,
-                    GlobalState.Off,
-                    GlobalState.Shutdown,
-                    null -> {
-                        val errorMessage = "Failed to start Linphone core; in state: $state!"
-                        val error = IllegalStateException(errorMessage)
-                        Log.e(TAG, errorMessage, error)
+                    linphoneContext.updateLinphoneCoreStarted(isStarted = true)
+                }
+                Ready,
+                Off,
+                Shutdown -> {
+                    val errorMessage = "Failed to start Linphone core; " +
+                            "reason: $errorReason; in state: $globalState!"
+                    val error = ProcessingEngineStartFailedAsync(errorMessage)
+                    logger.e(errorMessage, error)
 
-                        linphoneCore.removeListener(this)
-                        emitter.onError(error)
-                    }
+                    linphoneContext.disableCoreListener(thisCoreListenerId)
+                    emitter.onError(error)
                 }
             }
         }
 
-        linphoneCore.addListener(globalStateChangeListener)
+        linphoneContext.enableCoreListener(globalStateChangeListenerId)
 
-        val startupCode = linphoneCore.start()
+        val startupCode = linphoneContext.startLinphoneCore()
 
         if (startupCode != 0) {
-            val errorMessage = "Failed to start Linphone core; startup code: $startupCode!"
-            val error = IllegalStateException(errorMessage)
-            Log.e(TAG, errorMessage, error)
+            val errorMessage = "Failed to start Linphone core; startup code: $startupCode; " +
+                    "in state: ${linphoneContext.getCurrentGlobalState()}!"
+            val error = ProcessingEngineStartFailedSync(errorMessage)
+            logger.e(errorMessage, error)
 
-            linphoneCore.removeListener(globalStateChangeListener)
+            linphoneContext.disableCoreListener(globalStateChangeListenerId)
             emitter.onError(error)
         }
     }

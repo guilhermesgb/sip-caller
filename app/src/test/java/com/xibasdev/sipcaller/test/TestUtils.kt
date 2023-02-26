@@ -9,7 +9,9 @@ import io.reactivex.rxjava3.core.Scheduler
 import io.reactivex.rxjava3.core.Single
 import io.reactivex.rxjava3.observers.TestObserver
 import io.reactivex.rxjava3.schedulers.Schedulers
+import io.reactivex.rxjava3.schedulers.TestScheduler
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeUnit.SECONDS
 
 
 object Observable {
@@ -17,12 +19,17 @@ object Observable {
     fun <T : Any> Observable<T>.prepareInBackgroundAndWaitUpToTimeout(
         scheduler: Scheduler = Schedulers.io(),
         timeoutDuration: Long = 2,
-        timeoutUnit: TimeUnit = TimeUnit.SECONDS
+        timeoutUnit: TimeUnit = SECONDS
     ): TestObserver<T> {
 
         return prepareInBackground(scheduler).also { observer ->
 
-            observer.waitUpToTimeout(timeoutDuration, timeoutUnit)
+            if (scheduler is TestScheduler) {
+                observer.simulateWaitUpToTimeout(timeoutDuration, timeoutUnit)
+
+            } else {
+                observer.waitUpToTimeout(timeoutDuration, timeoutUnit)
+            }
         }
     }
 
@@ -71,19 +78,36 @@ object Observable {
 
 object Completable {
 
+    fun Completable.prepareInForegroundAndWaitUpToTimeout(
+        timeoutDuration: Long = 2,
+        timeoutUnit: TimeUnit = SECONDS
+    ): TestObserver<Void> {
+
+        return prepareInBackgroundAndWaitUpToTimeout(TEST_SCHEDULER, timeoutDuration, timeoutUnit)
+    }
+
     fun Completable.prepareInBackgroundAndWaitUpToTimeout(
         scheduler: Scheduler = Schedulers.io(),
         timeoutDuration: Long = 2,
-        timeoutUnit: TimeUnit = TimeUnit.SECONDS
+        timeoutUnit: TimeUnit = SECONDS
     ): TestObserver<Void> {
 
         return prepareInBackground(scheduler).also { observer ->
 
-            observer.waitUpToTimeout(timeoutDuration, timeoutUnit)
+            if (scheduler is TestScheduler) {
+                observer.simulateWaitUpToTimeout(timeoutDuration, timeoutUnit)
+
+            } else {
+                observer.waitUpToTimeout(timeoutDuration, timeoutUnit)
+            }
         }
     }
 
-    private fun Completable.prepareInBackground(
+    fun Completable.prepareInForeground(): TestObserver<Void> {
+        return prepareInBackground(TEST_SCHEDULER)
+    }
+
+    fun Completable.prepareInBackground(
         scheduler: Scheduler = Schedulers.io()
     ): TestObserver<Void> {
 
@@ -131,16 +155,21 @@ object Single {
     fun <T : Any> Single<T>.prepareInBackgroundAndWaitUpToTimeout(
         scheduler: Scheduler = Schedulers.io(),
         timeoutDuration: Long = 2,
-        timeoutUnit: TimeUnit = TimeUnit.SECONDS
+        timeoutUnit: TimeUnit = SECONDS
     ): TestObserver<T> {
 
         return prepareInBackground(scheduler).also { observer ->
 
-            observer.waitUpToTimeout(timeoutDuration, timeoutUnit)
+            if (scheduler is TestScheduler) {
+                observer.simulateWaitUpToTimeout(timeoutDuration, timeoutUnit)
+
+            } else {
+                observer.waitUpToTimeout(timeoutDuration, timeoutUnit)
+            }
         }
     }
 
-    private fun <T : Any> Single<T>.prepareInBackground(
+    fun <T : Any> Single<T>.prepareInBackground(
         scheduler: Scheduler = Schedulers.io()
     ): TestObserver<T> {
 
@@ -184,10 +213,23 @@ object Single {
 }
 
 
+fun <T : Any> TestObserver<T>.simulateWaitUpToTimeout(
+    timeoutDuration: Long = 2,
+    timeoutUnit: TimeUnit = SECONDS
+) {
+
+    TEST_SCHEDULER.advanceTimeBy(timeoutDuration, timeoutUnit)
+    TEST_SCHEDULER.triggerActions()
+}
+
+
 fun <T : Any> TestObserver<T>.waitUpToTimeout(
     timeoutDuration: Long = 2,
-    timeoutUnit: TimeUnit = TimeUnit.SECONDS
+    timeoutUnit: TimeUnit = SECONDS
 ) {
 
     await(timeoutDuration, timeoutUnit)
 }
+
+
+val TEST_SCHEDULER = TestScheduler()

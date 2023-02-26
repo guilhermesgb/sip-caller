@@ -8,10 +8,12 @@ import javax.inject.Inject
 
 private const val MAX_TOLERATED_PROCESSING_DELTA_MS = CALL_PROCESSING_RATE_MS * 1.1
 
-class FakeSipEngine @Inject constructor() : SipEngineApi {
+class FakeSipEngine @Inject constructor() : SipEngineApi, FakeSipEngineApi {
 
     private var isEngineStarted = false
     private var lastProcessingTimeMs = -1L
+
+    private var simulateSipEngineStuckInCoreIteration = false
 
     override fun startEngine(): Completable {
         return Completable.fromCallable {
@@ -28,6 +30,10 @@ class FakeSipEngine @Inject constructor() : SipEngineApi {
 
     override fun processEngineSteps(): Completable {
         return Completable.create { emitter ->
+
+            if (simulateSipEngineStuckInCoreIteration) {
+                return@create
+            }
 
             val currentTimeMs = System.currentTimeMillis()
 
@@ -51,6 +57,10 @@ class FakeSipEngine @Inject constructor() : SipEngineApi {
                 emitter.onComplete()
             }
         }
+    }
+
+    override fun simulateSipEngineStuckInCoreIteration() {
+        simulateSipEngineStuckInCoreIteration = true
     }
 
     override fun observeCallHistory(): Observable<List<CallHistoryUpdate>> {

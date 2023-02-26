@@ -4,6 +4,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
+import com.xibasdev.sipcaller.app.AppModule
 import com.xibasdev.sipcaller.app.FakeWorkManagerInitializer
 import com.xibasdev.sipcaller.app.WorkManagerInitializerApi
 import com.xibasdev.sipcaller.dto.processing.CallProcessingStarted
@@ -36,13 +37,18 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 @HiltAndroidTest
-@UninstallModules(CallProcessorDependenciesModule::class, CallProcessingWorkerModule::class)
+@UninstallModules(
+    AppModule::class,
+    AppModule.BindsModule::class,
+    CallProcessorDependenciesModule::class,
+    CallProcessingWorkerModule::class
+)
 @RunWith(AndroidJUnit4::class)
 class CallProcessorTest {
 
     @Module
     @InstallIn(SingletonComponent::class)
-    interface FakeCallProcessorDependenciesModule {
+    interface FakeBindsModule {
 
         @Binds
         @Singleton
@@ -57,7 +63,7 @@ class CallProcessorTest {
 
     @Module
     @InstallIn(SingletonComponent::class)
-    class TestCallProcessingWorkerModule {
+    class TestProvidesModule {
         @Provides
         @Named("CallProcessing")
         fun provideStartCallProcessingWorkRequest(): OneTimeWorkRequest {
