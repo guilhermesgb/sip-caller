@@ -29,7 +29,6 @@ import io.reactivex.rxjava3.subjects.ReplaySubject
 import java.util.TreeMap
 import javax.inject.Inject
 import javax.inject.Named
-import kotlin.reflect.KClass
 import org.linphone.core.Call.Dir
 import org.linphone.core.Call.Dir.Incoming
 import org.linphone.core.Call.Dir.Outgoing
@@ -74,51 +73,51 @@ class LinphoneCallHistoryObserver @Inject constructor(
         when (state) {
             IncomingReceived,
             OutgoingProgress -> postCallHistoryUpdate(::CallInvitationDetected)
-            StreamsRunning -> ifPreviousHistoryUpdateIs(CallInvitationDetected::class) {
+            StreamsRunning -> ifPreviousHistoryUpdateIs(CallInvitationDetected::class.java) {
                 postCallHistoryUpdate(::CallInvitationAccepted)
             }
             Error -> {
-                ifPreviousHistoryUpdateIs(CallInvitationDetected::class) {
+                ifPreviousHistoryUpdateIs(CallInvitationDetected::class.java) {
                     postCallFailedUpdate(::CallInvitationFailed)
                 }
 
-                ifPreviousHistoryUpdateIs(CallInvitationAccepted::class) {
+                ifPreviousHistoryUpdateIs(CallInvitationAccepted::class.java) {
                     postCallFailedUpdate(::CallSessionFailed)
                 }
             }
             End -> when (status) {
                 Aborted -> when (direction) {
-                    Incoming -> ifPreviousHistoryUpdateIs(CallInvitationDetected::class) {
+                    Incoming -> ifPreviousHistoryUpdateIs(CallInvitationDetected::class.java) {
                         postConditionalCallHistoryUpdate(
                             ::CallInvitationDeclined,
                             ::CallInvitationCanceled
                         )
                     }
-                    Outgoing -> ifPreviousHistoryUpdateIs(CallInvitationDetected::class) {
+                    Outgoing -> ifPreviousHistoryUpdateIs(CallInvitationDetected::class.java) {
                         postConditionalCallHistoryUpdate(
                             ::CallInvitationCanceled,
                             ::CallInvitationDeclined
                         )
                     }
                 }
-                Missed -> ifPreviousHistoryUpdateIs(CallInvitationDetected::class) {
+                Missed -> ifPreviousHistoryUpdateIs(CallInvitationDetected::class.java) {
                     postCallHistoryUpdate(::CallInvitationMissed)
                 }
                 Declined,
-                DeclinedElsewhere -> ifPreviousHistoryUpdateIs(CallInvitationDetected::class) {
+                DeclinedElsewhere -> ifPreviousHistoryUpdateIs(CallInvitationDetected::class.java) {
                     postCallHistoryUpdate(::CallInvitationDeclined)
                 }
-                AcceptedElsewhere -> ifPreviousHistoryUpdateIs(CallInvitationDetected::class) {
+                AcceptedElsewhere -> ifPreviousHistoryUpdateIs(CallInvitationDetected::class.java) {
                     postCallHistoryUpdate(::CallInviteAcceptedElsewhere)
                 }
                 Success -> when (direction) {
-                    Incoming -> ifPreviousHistoryUpdateIs(CallInvitationAccepted::class) {
+                    Incoming -> ifPreviousHistoryUpdateIs(CallInvitationAccepted::class.java) {
                         postConditionalCallHistoryUpdate(
                             ::CallSessionFinishedByCallee,
                             ::CallSessionFinishedByCaller
                         )
                     }
-                    Outgoing -> ifPreviousHistoryUpdateIs(CallInvitationAccepted::class) {
+                    Outgoing -> ifPreviousHistoryUpdateIs(CallInvitationAccepted::class.java) {
                         postConditionalCallHistoryUpdate(
                             ::CallSessionFinishedByCaller,
                             ::CallSessionFinishedByCallee
@@ -133,14 +132,14 @@ class LinphoneCallHistoryObserver @Inject constructor(
 
     context (LinphoneCallStateChange)
     private fun <T : CallHistoryUpdate> ifPreviousHistoryUpdateIs(
-        updateClass: KClass<T>,
+        updateClass: Class<T>,
         contextualFunction: () -> Unit
     ) {
 
         if (thereIsPreviousHistoryUpdate()) {
             getPreviousHistoryUpdate()?.let { previousHistoryUpdate ->
 
-                if (previousHistoryUpdate::class == updateClass) {
+                if (previousHistoryUpdate::class.java == updateClass) {
                     contextualFunction()
                 }
             }
@@ -204,22 +203,35 @@ class LinphoneCallHistoryObserver @Inject constructor(
         with (linphoneContext) {
             doWhenLinphoneCoreStartsOrStops(subject) { isLinphoneCoreStarted ->
 
+                logger.d("Observer detected Linphone core " +
+                        (if (isLinphoneCoreStarted) "start!" else "stop!"))
+
                 if (isLinphoneCoreStarted) {
                     enableCoreListener(callStateChangeListenerId)
+
+                    if (subject.values.isEmpty()) {
+                        subject.onNext(emptyList())
+                    }
 
                     latestCallHistoryUpdates
                         .flatMap { update ->
 
                             if (update is ConditionalCallHistoryUpdate) {
+                                logger.d("Process conditional call history update: $update.")
+
                                 wasCallFinishedByLocalParty(update.callId)
                                     .flatMapObservable { wasCallFinishedByLocalParty ->
 
                                         if (wasCallFinishedByLocalParty) {
+                                            logger.d("Call was finished by local party.")
+
                                             Observable.just(
                                                 update.updateIfCallFinishedByLocalParty
                                             )
 
                                         } else {
+                                            logger.d("Call was finished by remote party.")
+
                                             Observable.just(
                                                 update.updateIfCallFinishedByRemoteParty
                                             )
@@ -227,6 +239,8 @@ class LinphoneCallHistoryObserver @Inject constructor(
                                     }
 
                             } else {
+                                logger.d("Process call history update: $update.")
+
                                 Observable.just(update)
                             }
                         }.map { newUpdate ->

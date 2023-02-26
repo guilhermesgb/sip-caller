@@ -15,7 +15,7 @@ abstract class LinphoneContextApi {
 
     private val isStartedUpdates = BehaviorSubject.createDefault(false)
     private val stoppedDisposables = CompositeDisposable()
-    private val wasCallFinishedByLocalParty = TreeMap<SipCallId, Boolean>()
+    private val wasCallFinishedByLocalParty = TreeMap<String, Boolean>()
 
     abstract fun getCurrentGlobalState(): GlobalState
 
@@ -61,7 +61,11 @@ abstract class LinphoneContextApi {
             .addTo(stoppedDisposables)
     }
 
+    fun setCallFinishedByLocalParty(callId: SipCallId) {
+        wasCallFinishedByLocalParty[callId.value] = true
+    }
+
     fun wasCallFinishedByLocalParty(callId: SipCallId): Single<Boolean> {
-        return Single.just(wasCallFinishedByLocalParty.getOrDefault(callId, false))
+        return Single.just(wasCallFinishedByLocalParty.getOrDefault(callId.value, false))
     }
 }
