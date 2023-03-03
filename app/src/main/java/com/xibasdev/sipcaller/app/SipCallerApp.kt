@@ -8,7 +8,7 @@ import javax.inject.Inject
 @HiltAndroidApp
 class SipCallerApp : Application() {
 
-    @Inject lateinit var appLifecycleObserver: AppLifecycleObserver
+    @Inject lateinit var appLifecycleObserver: SipCallerAppLifecycleObserver
 
     override fun onCreate() {
         super.onCreate()

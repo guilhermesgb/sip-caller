@@ -1,5 +1,6 @@
 package com.xibasdev.sipcaller.sip.linphone.context
 
+import com.xibasdev.sipcaller.sip.SipCallId
 import java.util.LinkedList
 import java.util.Queue
 import java.util.TreeMap
@@ -253,6 +254,15 @@ class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
     }
 
     override fun simulateIncomingCallCanceledByCaller(callId: String) {
+        simulateIncomingCallCanceled(callId)
+    }
+
+    override fun simulateIncomingCallCanceledByCallee(callId: String) {
+        setCallFinishedByLocalParty(SipCallId(callId))
+        simulateIncomingCallCanceled(callId)
+    }
+
+    private fun simulateIncomingCallCanceled(callId: String) {
         enqueueCallStateChange(LinphoneCallStateChange(
             callId = callId,
             direction = Incoming,

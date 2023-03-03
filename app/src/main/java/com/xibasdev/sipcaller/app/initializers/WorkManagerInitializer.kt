@@ -1,4 +1,4 @@
-package com.xibasdev.sipcaller.app
+package com.xibasdev.sipcaller.app.initializers
 
 import android.content.Context
 import androidx.work.Configuration

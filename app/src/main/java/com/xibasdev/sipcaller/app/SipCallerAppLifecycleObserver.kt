@@ -7,7 +7,7 @@ import io.reactivex.rxjava3.disposables.CompositeDisposable
 import io.reactivex.rxjava3.kotlin.addTo
 import javax.inject.Inject
 
-class AppLifecycleObserver @Inject constructor(
+class SipCallerAppLifecycleObserver @Inject constructor(
     private val callProcessor: CallProcessorApi
 ) : DefaultLifecycleObserver {
 

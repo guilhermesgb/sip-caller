@@ -1,4 +1,4 @@
-package com.xibasdev.sipcaller.app
+package com.xibasdev.sipcaller.app.initializers
 
 import com.elvishew.xlog.XLog
 import javax.inject.Inject

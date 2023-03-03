@@ -410,8 +410,7 @@ class LinphoneCallHistoryObserverTest {
             })
             .simulateAfterDelay()
             .andThen(Completable.fromCallable {
-                linphoneContext.setCallFinishedByLocalParty(SipCallId("1"))
-                linphoneContext.simulateIncomingCallCanceledByCaller("1")
+                linphoneContext.simulateIncomingCallCanceledByCallee("1")
             })
             .simulateAfterDelay()
             .prepareInForeground()

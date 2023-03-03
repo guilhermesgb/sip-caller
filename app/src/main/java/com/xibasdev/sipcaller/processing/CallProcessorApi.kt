@@ -9,7 +9,7 @@ import io.reactivex.rxjava3.core.Observable
  *   processing: starting or stopping it as well as reacting to processing state changes.
  *
  * To be used by app components scoped to some lifecycle context, such as the
- *   [com.xibasdev.sipcaller.app.AppLifecycleObserver] that is scoped to the whole app process.
+ *   [com.xibasdev.sipcaller.app.SipCallerAppLifecycleObserver] that is scoped to the whole app process.
  */
 interface CallProcessorApi {
 

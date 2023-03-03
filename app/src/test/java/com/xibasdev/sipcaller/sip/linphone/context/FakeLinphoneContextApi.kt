@@ -22,5 +22,7 @@ interface FakeLinphoneContextApi {
 
     fun simulateIncomingCallCanceledByCaller(callId: String)
 
+    fun simulateIncomingCallCanceledByCallee(callId: String)
+
     fun simulateOutgoingCallInvitationSent()
 }
