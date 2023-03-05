@@ -7,14 +7,18 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequest
 import androidx.work.PeriodicWorkRequestBuilder
+import com.xibasdev.sipcaller.dto.processing.CallProcessing
+import com.xibasdev.sipcaller.dto.processing.CallProcessingStopped
 import com.xibasdev.sipcaller.processing.worker.CallProcessingChecksWorker
 import com.xibasdev.sipcaller.processing.worker.CallProcessingWorker
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import java.util.concurrent.TimeUnit
+import io.reactivex.rxjava3.subjects.BehaviorSubject
+import java.util.concurrent.TimeUnit.MINUTES
 import javax.inject.Named
+import javax.inject.Singleton
 
 private const val UNIQUE_WORK_NAME_CALL_PROCESSING = "CallProcessing"
 private const val UNIQUE_WORK_NAME_CALL_PROCESSING_CHECKS = "CallProcessingChecks"
@@ -24,12 +28,21 @@ private const val UNIQUE_WORK_NAME_CALL_PROCESSING_CHECKS = "CallProcessingCheck
 class CallProcessingWorkerModule {
 
     @Provides
+    @Singleton
+    @Named("CallProcessingUpdates")
+    fun provideCallProcessingUpdatesSubject(): BehaviorSubject<CallProcessing> {
+        return BehaviorSubject.createDefault(CallProcessingStopped)
+    }
+
+    @Provides
+    @Singleton
     @Named("CallProcessingUniqueWorkName")
     fun provideCallProcessingUniqueWorkName(): String {
         return UNIQUE_WORK_NAME_CALL_PROCESSING
     }
 
     @Provides
+    @Singleton
     @Named("CallProcessing")
     fun provideStartCallProcessingWorkRequest(): OneTimeWorkRequest {
         return OneTimeWorkRequestBuilder<CallProcessingWorker>()
@@ -39,15 +52,17 @@ class CallProcessingWorkerModule {
     }
 
     @Provides
+    @Singleton
     @Named("CallProcessingChecksUniqueWorkName")
     fun provideCallProcessingChecksUniqueWorkName(): String {
         return UNIQUE_WORK_NAME_CALL_PROCESSING_CHECKS
     }
 
     @Provides
+    @Singleton
     @Named("CallProcessingChecks")
     fun provideCallProcessingChecksWorkRequest(): PeriodicWorkRequest {
-        return PeriodicWorkRequestBuilder<CallProcessingChecksWorker>(15, TimeUnit.MINUTES)
+        return PeriodicWorkRequestBuilder<CallProcessingChecksWorker>(15, MINUTES)
             .setConstraints(Constraints.Builder().setRequiredNetworkType(CONNECTED).build())
             .build()
     }

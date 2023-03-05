@@ -3,13 +3,13 @@ package com.xibasdev.sipcaller.app.initializers
 import android.content.Context
 import androidx.work.Configuration
 import androidx.work.WorkManager
-import com.xibasdev.sipcaller.processing.worker.CallProcessingWorkerFactory
+import com.xibasdev.sipcaller.app.workers.DelegatingWorkerFactory
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
 class WorkManagerInitializer @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val callProcessingWorkerFactory: CallProcessingWorkerFactory
+    private val delegatingWorkerFactory: DelegatingWorkerFactory
 ) : WorkManagerInitializerApi {
 
     override fun initializeWorkManager() {
@@ -17,7 +17,7 @@ class WorkManagerInitializer @Inject constructor(
             WorkManager.initialize(
                 context,
                 Configuration.Builder()
-                    .setWorkerFactory(callProcessingWorkerFactory)
+                    .setWorkerFactory(delegatingWorkerFactory)
                     .build()
             )
         }

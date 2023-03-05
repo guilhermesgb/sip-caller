@@ -8,23 +8,28 @@ object InfiniteWorkProgressUtils {
 
     context (WorkManager)
     fun getInfiniteWorkProgress(uniqueWorkName: String): InfiniteWorkProgress {
-        val workInfoList = getWorkInfosForUniqueWork(uniqueWorkName).get()
+        return try {
+            val workInfoList = getWorkInfosForUniqueWork(uniqueWorkName).get()
 
-        return if (workInfoList.isEmpty()) {
-            InfiniteWorkMissing
-
-        } else {
-            val workState = workInfoList.first().state
-
-            if (workState.isFinished) {
-                InfiniteWorkFailed(workState)
-
-            } else if (workState == ENQUEUED || workState == BLOCKED) {
-                InfiniteWorkSuspended(workState)
+            if (workInfoList.isEmpty()) {
+                InfiniteWorkMissing
 
             } else {
-                InfiniteWorkOngoing
+                val workInfoListEntry = workInfoList.first()
+                val workState = workInfoListEntry.state
+
+                if (workState.isFinished) {
+                    InfiniteWorkFailed(workState = workState)
+
+                } else if (workState == ENQUEUED || workState == BLOCKED) {
+                    InfiniteWorkSuspended(workState = workState)
+
+                } else {
+                    InfiniteWorkOngoing
+                }
             }
+        } catch (error: Throwable) {
+            InfiniteWorkFailed(cause = error)
         }
     }
 }

@@ -8,11 +8,18 @@ import androidx.work.OneTimeWorkRequest
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.rxjava3.RxWorker
+import com.xibasdev.sipcaller.dto.processing.CallProcessing
+import com.xibasdev.sipcaller.dto.processing.CallProcessingFailed
+import com.xibasdev.sipcaller.dto.processing.CallProcessingStarted
+import com.xibasdev.sipcaller.dto.processing.CallProcessingSuspended
 import com.xibasdev.sipcaller.processing.util.InfiniteWorkFailed
 import com.xibasdev.sipcaller.processing.util.InfiniteWorkMissing
+import com.xibasdev.sipcaller.processing.util.InfiniteWorkOngoing
 import com.xibasdev.sipcaller.processing.util.InfiniteWorkProgressUtils.getInfiniteWorkProgress
+import com.xibasdev.sipcaller.processing.util.InfiniteWorkSuspended
 import dagger.assisted.AssistedInject
 import io.reactivex.rxjava3.core.Single
+import io.reactivex.rxjava3.subjects.BehaviorSubject
 import javax.inject.Named
 
 private const val TAG = "CallProcessingChecksWorker"
@@ -21,6 +28,7 @@ private const val TAG = "CallProcessingChecksWorker"
 class CallProcessingChecksWorker @AssistedInject constructor(
     private val context: Context,
     parameters: WorkerParameters,
+    @Named("CallProcessingUpdates") private val processingUpdates: BehaviorSubject<CallProcessing>,
     @Named("CallProcessingUniqueWorkName") private val callProcessingWorkName: String,
     @Named("CallProcessing") private val startCallProcessingWorkRequest: OneTimeWorkRequest
 ) : RxWorker(context, parameters) {
@@ -39,7 +47,8 @@ class CallProcessingChecksWorker @AssistedInject constructor(
                         restartCallProcessing()
                     }
                     is InfiniteWorkFailed -> {
-                        Log.d(TAG, "Check detected call processing state: ${progress.workState}!")
+                        Log.d(TAG, "Check detected call processing state: " +
+                                "${progress.workState}!")
 
                         restartCallProcessing()
                     }
@@ -67,17 +76,32 @@ class CallProcessingChecksWorker @AssistedInject constructor(
 
         return when (val progress = getInfiniteWorkProgress(callProcessingWorkName)) {
             is InfiniteWorkFailed -> {
-                Log.e(TAG, "Check failed to restart processing: in state ${progress.workState}!")
+                Log.e(TAG, "Check failed to restart processing: " +
+                        "in state ${progress.workState}!")
+
+                val error = IllegalStateException("Work not restarted: " +
+                        "in state ${progress.workState}.")
+                processingUpdates.onNext(CallProcessingFailed(error))
 
                 false
             }
             InfiniteWorkMissing -> {
                 Log.e(TAG, "Check failed to restart call processing: not found!")
 
+                val error = IllegalStateException("Work not restarted: not found.")
+                processingUpdates.onNext(CallProcessingFailed(error))
+
                 false
             }
-            else -> {
+            is InfiniteWorkSuspended -> {
+                Log.d(TAG, "Check scheduled call processing restart successfully.")
+                processingUpdates.onNext(CallProcessingSuspended)
+
+                true
+            }
+            InfiniteWorkOngoing -> {
                 Log.d(TAG, "Check restarted call processing successfully.")
+                processingUpdates.onNext(CallProcessingStarted)
 
                 true
             }

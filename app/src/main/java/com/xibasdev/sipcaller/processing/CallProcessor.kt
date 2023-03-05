@@ -35,6 +35,7 @@ private const val CALL_PROCESSING_MONITORING_RATE_MS = 250L
 class CallProcessor @Inject constructor(
     @ApplicationContext private val context: Context,
     private val callStateNotifier: CallStateNotifierApi,
+    @Named("CallProcessingUpdates") private val processingUpdates: BehaviorSubject<CallProcessing>,
     @Named("CallProcessingUniqueWorkName") private val callProcessingWorkName: String,
     @Named("CallProcessing") private val startCallProcessingWorkRequest: OneTimeWorkRequest,
     @Named("CallProcessingChecksUniqueWorkName") private val processingChecksWorkName: String,
@@ -42,20 +43,17 @@ class CallProcessor @Inject constructor(
     workManagerInitializer: WorkManagerInitializerApi
 ) : CallProcessorApi {
 
-    init {
-        workManagerInitializer.initializeWorkManager()
-    }
-
     private val workManager by lazy {
         WorkManager.getInstance(context)
     }
 
     private val disposables = CompositeDisposable()
 
-    private val callProcessingUpdates = BehaviorSubject
-        .createDefault<CallProcessing>(CallProcessingStopped).apply {
-            monitorProcessingStateUpdates()
-        }
+    init {
+        workManagerInitializer.initializeWorkManager()
+
+        processingUpdates.monitorProcessingStateUpdates()
+    }
 
     override fun startProcessing(): Completable {
         return Completable.create { emitter ->
@@ -74,7 +72,7 @@ class CallProcessor @Inject constructor(
                         InfiniteWorkMissing -> {
                             val error = IllegalStateException("Work not started: not found.")
                             callStateNotifier.notifyProcessingStartFailed(error)
-                            callProcessingUpdates.onNext(CallProcessingFailed(error))
+                            processingUpdates.onNext(CallProcessingFailed(error))
                             emitter.onError(error)
 
                             Log.e(TAG, "Calls processing failed to start: work not found!", error)
@@ -82,19 +80,19 @@ class CallProcessor @Inject constructor(
                         is InfiniteWorkFailed -> {
                             val error = IllegalStateException("Work not started: finished.")
                             callStateNotifier.notifyProcessingStartFailed(error)
-                            callProcessingUpdates.onNext(CallProcessingFailed(error))
+                            processingUpdates.onNext(CallProcessingFailed(error))
                             emitter.onError(error)
 
                             Log.e(TAG, "Calls processing failed: in state ${progress.workState}!")
                         }
                         is InfiniteWorkSuspended -> {
-                            callProcessingUpdates.onNext(CallProcessingSuspended)
+                            processingUpdates.onNext(CallProcessingSuspended)
                             emitter.onComplete()
 
                             Log.d(TAG, "Calls processing start scheduled.")
                         }
                         InfiniteWorkOngoing -> {
-                            callProcessingUpdates.onNext(CallProcessingStarted)
+                            processingUpdates.onNext(CallProcessingStarted)
                             emitter.onComplete()
 
                             Log.d(TAG, "Calls processing started.")
@@ -102,7 +100,7 @@ class CallProcessor @Inject constructor(
                     }
                 } catch (error: Throwable) {
                     callStateNotifier.notifyProcessingStartFailed(error)
-                    callProcessingUpdates.onNext(CallProcessingFailed(error))
+                    processingUpdates.onNext(CallProcessingFailed(error))
                     emitter.onError(error)
 
                     Log.e(TAG, "Calls processing failed to start!", error)
@@ -112,7 +110,7 @@ class CallProcessor @Inject constructor(
     }
 
     override fun observeProcessing(): Observable<CallProcessing> {
-        return callProcessingUpdates.distinctUntilChanged()
+        return processingUpdates.distinctUntilChanged()
     }
 
     override fun stopProcessing(): Completable {
@@ -130,7 +128,7 @@ class CallProcessor @Inject constructor(
                 stopCallProcessing.result.get()
                 stopCallProcessingChecks.result.get()
 
-                callProcessingUpdates.onNext(CallProcessingStopped)
+                processingUpdates.onNext(CallProcessingStopped)
                 emitter.onComplete()
 
                 Log.d(TAG, "Calls processing stopped.")
@@ -138,7 +136,7 @@ class CallProcessor @Inject constructor(
             } catch (error: Throwable) {
 
                 callStateNotifier.notifyProcessingStopFailed(error)
-                callProcessingUpdates.onNext(CallProcessingFailed(error))
+                processingUpdates.onNext(CallProcessingFailed(error))
                 emitter.onError(error)
 
                 Log.e(TAG, "Calls processing failed to stop!", error)
@@ -179,33 +177,17 @@ class CallProcessor @Inject constructor(
     }
 
     private fun BehaviorSubject<CallProcessing>.checkCurrentWorkProgress(): CallProcessing {
-        with (workManager) {
-            when (val progress = getInfiniteWorkProgress(processingChecksWorkName)) {
+        return with (workManager) {
+            when (val processingProgress = getInfiniteWorkProgress(callProcessingWorkName)) {
                 InfiniteWorkMissing -> {
-                    Log.e(TAG, "Processing fail - work for call processing checks not found!")
+                    val currentProcessingStatus = value
 
-                    val error = IllegalStateException("Processing checks work not found.")
-                    callStateNotifier.notifyProcessingFailed(error)
-                    return CallProcessingFailed(error).also {
-                        onNext(it)
+                    if (currentProcessingStatus != CallProcessingSuspended
+                        && currentProcessingStatus != CallProcessingStarted) {
+
+                        return@with currentProcessingStatus ?: CallProcessingStopped
                     }
-                }
-                is InfiniteWorkFailed -> {
-                    Log.e(TAG, "Processing fail - process checks state: ${progress.workState}!")
 
-                    val error = IllegalStateException(
-                        "Processing checks not running; system reported state: ${progress.workState}!"
-                    )
-                    callStateNotifier.notifyProcessingFailed(error)
-                    return CallProcessingFailed(error).also {
-                        onNext(it)
-                    }
-                }
-                else -> {}
-            }
-
-            return when (val progress = getInfiniteWorkProgress(callProcessingWorkName)) {
-                InfiniteWorkMissing -> {
                     Log.e(TAG, "Processing fail - work for call processing not found!")
 
                     val error = IllegalStateException("Processing work not found.")
@@ -213,10 +195,20 @@ class CallProcessor @Inject constructor(
                     CallProcessingFailed(error)
                 }
                 is InfiniteWorkFailed -> {
-                    Log.e(TAG, "Processing fail - call processing state: ${progress.workState}!")
+                    val currentProcessingStatus = value
+
+                    if (currentProcessingStatus != CallProcessingSuspended
+                            && currentProcessingStatus != CallProcessingStarted) {
+
+                        return@with currentProcessingStatus ?: CallProcessingStopped
+                    }
+
+                    Log.e(TAG, "Processing fail - call processing state:" +
+                            " ${processingProgress.workState}!")
 
                     val error = IllegalStateException(
-                        "Processing not running; system reported state: ${progress.workState}!"
+                        "Processing not running; system reported state:" +
+                                " ${processingProgress.workState}!"
                     )
                     callStateNotifier.notifyProcessingFailed(error)
                     CallProcessingFailed(error).also {
@@ -224,20 +216,64 @@ class CallProcessor @Inject constructor(
                     }
                 }
                 is InfiniteWorkSuspended -> {
-                    Log.d(TAG, "Processing is still suspended...")
+                    val currentProcessingStatus = value
+
+                    if (currentProcessingStatus == CallProcessingSuspended) {
+                        Log.d(TAG, "Processing is still suspended...")
+                        return@with currentProcessingStatus
+                    }
+
+                    Log.d(TAG, "Processing is now suspended...")
 
                     CallProcessingSuspended.also {
                         onNext(it)
                     }
                 }
                 InfiniteWorkOngoing -> {
-                    Log.d(TAG, "Processing is still ongoing...")
+                    val currentProcessingStatus = value
+
+                    if (currentProcessingStatus == CallProcessingStarted) {
+                        Log.d(TAG, "Processing is still ongoing...")
+
+                        return@with checkProcessingChecksProgress(currentProcessingStatus)
+                    }
+
+                    Log.d(TAG, "Processing is now ongoing...")
 
                     CallProcessingStarted.also {
                         onNext(it)
                     }
                 }
             }
+        }
+    }
+
+    context (WorkManager)
+    private fun BehaviorSubject<CallProcessing>.checkProcessingChecksProgress(
+        currentProcessingStatus: CallProcessing
+    ): CallProcessing {
+        return when (val progress = getInfiniteWorkProgress(processingChecksWorkName)) {
+            InfiniteWorkMissing -> {
+                Log.e(TAG, "Processing fail - work for call processing checks not found!")
+
+                val error = IllegalStateException("Processing checks work not found.")
+                callStateNotifier.notifyProcessingFailed(error)
+                return CallProcessingFailed(error).also {
+                    onNext(it)
+                }
+            }
+            is InfiniteWorkFailed -> {
+                Log.e(TAG, "Processing fail - process checks state: ${progress.workState}!")
+
+                val error = IllegalStateException(
+                    "Processing checks not running; system reported state: ${progress.workState}!"
+                )
+                callStateNotifier.notifyProcessingFailed(error)
+                return CallProcessingFailed(error).also {
+                    onNext(it)
+                }
+            }
+            else -> currentProcessingStatus
         }
     }
 
