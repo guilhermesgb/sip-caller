@@ -5,6 +5,7 @@ import com.elvishew.xlog.XLog
 import com.xibasdev.sipcaller.sip.linphone.LinphoneSipEngine
 import com.xibasdev.sipcaller.sip.linphone.context.FakeLinphoneContext
 import com.xibasdev.sipcaller.sip.linphone.history.LinphoneCallHistoryObserver
+import com.xibasdev.sipcaller.sip.linphone.registering.LinphoneAccountRegistry
 import com.xibasdev.sipcaller.sip.processing.ProcessingEngineApi
 import com.xibasdev.sipcaller.sip.processing.ProcessingEngineProcessingFailed
 import com.xibasdev.sipcaller.sip.processing.ProcessingEngineStartFailedAsync
@@ -14,6 +15,9 @@ import com.xibasdev.sipcaller.test.TEST_SCHEDULER
 import com.xibasdev.sipcaller.test.XLogRule
 import com.xibasdev.sipcaller.test.simulateWaitUpToTimeout
 import io.reactivex.rxjava3.core.Observable
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneId
 import java.util.concurrent.TimeUnit.MILLISECONDS
 import org.junit.Before
 import org.junit.Rule
@@ -25,17 +29,21 @@ class LinphoneProcessingEngineTest {
     val xLogRule = XLogRule()
 
     private lateinit var logger: Logger
+    private lateinit var clock: Clock
     private lateinit var linphoneContext: FakeLinphoneContext
     private lateinit var processingEngine: ProcessingEngineApi
 
     @Before
     fun setUp() {
         logger = XLog.tag("LinphoneProcessingEngineTest").build()
+        clock = Clock.fixed(Instant.now(), ZoneId.systemDefault())
+
         linphoneContext = FakeLinphoneContext()
 
         processingEngine = LinphoneSipEngine(
             LinphoneProcessingEngine(linphoneContext, logger),
-            LinphoneCallHistoryObserver(linphoneContext, logger)
+            LinphoneCallHistoryObserver(linphoneContext, logger, clock),
+            LinphoneAccountRegistry(linphoneContext, logger)
         )
     }
 

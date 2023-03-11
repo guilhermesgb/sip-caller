@@ -16,6 +16,7 @@ import io.reactivex.rxjava3.core.Single
 import io.reactivex.rxjava3.schedulers.Schedulers
 import java.io.File
 import java.io.FileOutputStream
+import java.time.Clock
 import javax.inject.Named
 import javax.inject.Singleton
 import org.linphone.core.AVPFMode
@@ -166,6 +167,12 @@ class LinphoneModule {
     @Singleton
     fun provideLinphoneContext(linphoneCore: LinphoneCore): LinphoneContextApi {
         return LinphoneContext(linphoneCore)
+    }
+
+    @Provides
+    @Named("LinphoneSipEngineClock")
+    fun provideLinphoneSipEngineClock(): Clock {
+        return Clock.systemUTC()
     }
 
     private fun initializeFileFromRawResourceForLinphone(

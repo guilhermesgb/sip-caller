@@ -1,6 +1,8 @@
 package com.xibasdev.sipcaller.sip.linphone.context
 
 import com.xibasdev.sipcaller.sip.SipCallId
+import com.xibasdev.sipcaller.sip.registering.account.AccountInfo
+import com.xibasdev.sipcaller.sip.registering.account.AccountPassword
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.core.Single
 import io.reactivex.rxjava3.disposables.CompositeDisposable
@@ -27,9 +29,31 @@ abstract class LinphoneContextApi {
         callback: (callStateChange: LinphoneCallStateChange, coreListenerId: Int) -> Unit
     ): Int
 
+    abstract fun createAccountRegistrationStateChangeListener(
+        callback: (
+            callStateChange: LinphoneAccountRegistrationStateChange,
+            coreListenerId: Int
+        ) -> Unit
+    ): Int
+
     abstract fun enableCoreListener(coreListenerId: Int)
 
     abstract fun disableCoreListener(coreListenerId: Int)
+
+    abstract fun createAccount(
+        idKey: String,
+        accountInfo: AccountInfo,
+        password: AccountPassword,
+        expirationMs: Int
+    ): Boolean
+
+    abstract fun deactivateAccount(idKey: String): Boolean
+
+    abstract fun destroyAccount(
+        idKey: String,
+        accountInfo: AccountInfo,
+        password: AccountPassword
+    ): Boolean
 
     abstract fun startLinphoneCore(): Int
 

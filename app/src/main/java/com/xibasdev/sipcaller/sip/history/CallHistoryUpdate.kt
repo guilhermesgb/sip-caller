@@ -2,6 +2,7 @@ package com.xibasdev.sipcaller.sip.history
 
 import com.xibasdev.sipcaller.sip.SipCallDirection
 import com.xibasdev.sipcaller.sip.SipCallId
+import java.time.OffsetDateTime
 
 /**
  * Representation of a upcoming call result observed via
@@ -17,4 +18,5 @@ sealed interface CallHistoryUpdate {
 
     val callId: SipCallId
     val callDirection: SipCallDirection
+    val timestamp: OffsetDateTime
 }

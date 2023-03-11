@@ -1,7 +1,8 @@
 package com.xibasdev.sipcaller.sip
 
-import com.xibasdev.sipcaller.sip.processing.ProcessingEngineApi
 import com.xibasdev.sipcaller.sip.history.CallHistoryObserverApi
+import com.xibasdev.sipcaller.sip.processing.ProcessingEngineApi
+import com.xibasdev.sipcaller.sip.registering.AccountRegistryApi
 
 
 /**
@@ -10,4 +11,4 @@ import com.xibasdev.sipcaller.sip.history.CallHistoryObserverApi
  *   implements such processing using a SIP library as its backbone (i.e. the liblinphone-based
  *   [com.xibasdev.sipcaller.sip.linphone.LinphoneSipEngine]).
  */
-interface SipEngineApi : ProcessingEngineApi, CallHistoryObserverApi
+interface SipEngineApi : ProcessingEngineApi, CallHistoryObserverApi, AccountRegistryApi

@@ -15,6 +15,7 @@ import com.xibasdev.sipcaller.sip.history.CallInviteAcceptedElsewhere
 import com.xibasdev.sipcaller.sip.linphone.LinphoneSipEngine
 import com.xibasdev.sipcaller.sip.linphone.context.FakeLinphoneContext
 import com.xibasdev.sipcaller.sip.linphone.processing.LinphoneProcessingEngine
+import com.xibasdev.sipcaller.sip.linphone.registering.LinphoneAccountRegistry
 import com.xibasdev.sipcaller.sip.processing.ProcessingEngineApi
 import com.xibasdev.sipcaller.test.Completable.prepareInForeground
 import com.xibasdev.sipcaller.test.Completable.simulateAfterDelay
@@ -24,6 +25,10 @@ import com.xibasdev.sipcaller.test.XLogRule
 import com.xibasdev.sipcaller.test.simulateWaitUpToTimeout
 import io.reactivex.rxjava3.core.Completable
 import io.reactivex.rxjava3.core.Observable
+import java.time.Clock
+import java.time.Instant
+import java.time.OffsetDateTime
+import java.time.ZoneId
 import java.util.concurrent.TimeUnit.MILLISECONDS
 import org.junit.Before
 import org.junit.Rule
@@ -35,18 +40,22 @@ class LinphoneCallHistoryObserverTest {
     val xLogRule = XLogRule()
 
     private lateinit var logger: Logger
+    private lateinit var clock: Clock
     private lateinit var linphoneContext: FakeLinphoneContext
     private lateinit var processingEngine: ProcessingEngineApi
     private lateinit var callHistoryObserver: CallHistoryObserverApi
 
     @Before
     fun setUp() {
-        logger = XLog.tag("LinphoneProcessingEngineTest").build()
+        logger = XLog.tag("LinphoneCallHistoryObserverTest").build()
+        clock = Clock.fixed(Instant.now(), ZoneId.systemDefault())
+
         linphoneContext = FakeLinphoneContext()
 
         val sipEngine = LinphoneSipEngine(
             LinphoneProcessingEngine(linphoneContext, logger),
-            LinphoneCallHistoryObserver(linphoneContext, logger)
+            LinphoneCallHistoryObserver(linphoneContext, logger, clock),
+            LinphoneAccountRegistry(linphoneContext, logger)
         )
         processingEngine = sipEngine
         callHistoryObserver = sipEngine
@@ -186,7 +195,11 @@ class LinphoneCallHistoryObserverTest {
         observable.assertValueCount(2)
         observable.assertValueAt(0, emptyList())
         observable.assertValueAt(1, listOf(
-            CallInvitationDetected(callId = SipCallId("1"), callDirection = INCOMING)
+            CallInvitationDetected(
+                callId = SipCallId("1"),
+                callDirection = INCOMING,
+                timestamp = OffsetDateTime.now(clock)
+            )
         ))
     }
 
@@ -215,7 +228,11 @@ class LinphoneCallHistoryObserverTest {
         observable.assertValueCount(2)
         observable.assertValueAt(0, emptyList())
         observable.assertValueAt(1, listOf(
-            CallInvitationDetected(callId = SipCallId("1"), callDirection = OUTGOING)
+            CallInvitationDetected(
+                callId = SipCallId("1"),
+                callDirection = OUTGOING,
+                timestamp = OffsetDateTime.now(clock)
+            )
         ))
     }
 
@@ -248,10 +265,18 @@ class LinphoneCallHistoryObserverTest {
         observable.assertValueCount(3)
         observable.assertValueAt(0, emptyList())
         observable.assertValueAt(1, listOf(
-            CallInvitationDetected(callId = SipCallId("1"), callDirection = INCOMING)
+            CallInvitationDetected(
+                callId = SipCallId("1"),
+                callDirection = INCOMING,
+                timestamp = OffsetDateTime.now(clock)
+            )
         ))
         observable.assertValueAt(2, listOf(
-            CallInvitationDeclined(callId = SipCallId("1"), callDirection = INCOMING)
+            CallInvitationDeclined(
+                callId = SipCallId("1"),
+                callDirection = INCOMING,
+                timestamp = OffsetDateTime.now(clock)
+            )
         ))
     }
 
@@ -284,10 +309,18 @@ class LinphoneCallHistoryObserverTest {
         observable.assertValueCount(3)
         observable.assertValueAt(0, emptyList())
         observable.assertValueAt(1, listOf(
-            CallInvitationDetected(callId = SipCallId("1"), callDirection = INCOMING)
+            CallInvitationDetected(
+                callId = SipCallId("1"),
+                callDirection = INCOMING,
+                timestamp = OffsetDateTime.now(clock)
+            )
         ))
         observable.assertValueAt(2, listOf(
-            CallInvitationAccepted(callId = SipCallId("1"), callDirection = INCOMING)
+            CallInvitationAccepted(
+                callId = SipCallId("1"),
+                callDirection = INCOMING,
+                timestamp = OffsetDateTime.now(clock)
+            )
         ))
     }
 
@@ -320,10 +353,18 @@ class LinphoneCallHistoryObserverTest {
         observable.assertValueCount(3)
         observable.assertValueAt(0, emptyList())
         observable.assertValueAt(1, listOf(
-            CallInvitationDetected(callId = SipCallId("1"), callDirection = INCOMING)
+            CallInvitationDetected(
+                callId = SipCallId("1"),
+                callDirection = INCOMING,
+                timestamp = OffsetDateTime.now(clock)
+            )
         ))
         observable.assertValueAt(2, listOf(
-            CallInvitationMissed(callId = SipCallId("1"), callDirection = INCOMING)
+            CallInvitationMissed(
+                callId = SipCallId("1"),
+                callDirection = INCOMING,
+                timestamp = OffsetDateTime.now(clock)
+            )
         ))
     }
 
@@ -356,10 +397,18 @@ class LinphoneCallHistoryObserverTest {
         observable.assertValueCount(3)
         observable.assertValueAt(0, emptyList())
         observable.assertValueAt(1, listOf(
-            CallInvitationDetected(callId = SipCallId("1"), callDirection = INCOMING)
+            CallInvitationDetected(
+                callId = SipCallId("1"),
+                callDirection = INCOMING,
+                timestamp = OffsetDateTime.now(clock)
+            )
         ))
         observable.assertValueAt(2, listOf(
-            CallInviteAcceptedElsewhere(callId = SipCallId("1"), callDirection = INCOMING)
+            CallInviteAcceptedElsewhere(
+                callId = SipCallId("1"),
+                callDirection = INCOMING,
+                timestamp = OffsetDateTime.now(clock)
+            )
         ))
     }
 
@@ -392,10 +441,18 @@ class LinphoneCallHistoryObserverTest {
         observable.assertValueCount(3)
         observable.assertValueAt(0, emptyList())
         observable.assertValueAt(1, listOf(
-            CallInvitationDetected(callId = SipCallId("1"), callDirection = INCOMING)
+            CallInvitationDetected(
+                callId = SipCallId("1"),
+                callDirection = INCOMING,
+                timestamp = OffsetDateTime.now(clock)
+            )
         ))
         observable.assertValueAt(2, listOf(
-            CallInvitationCanceled(callId = SipCallId("1"), callDirection = INCOMING)
+            CallInvitationCanceled(
+                callId = SipCallId("1"),
+                callDirection = INCOMING,
+                timestamp = OffsetDateTime.now(clock)
+            )
         ))
     }
 
@@ -428,10 +485,18 @@ class LinphoneCallHistoryObserverTest {
         observable.assertValueCount(3)
         observable.assertValueAt(0, emptyList())
         observable.assertValueAt(1, listOf(
-            CallInvitationDetected(callId = SipCallId("1"), callDirection = INCOMING)
+            CallInvitationDetected(
+                callId = SipCallId("1"),
+                callDirection = INCOMING,
+                timestamp = OffsetDateTime.now(clock)
+            )
         ))
         observable.assertValueAt(2, listOf(
-            CallInvitationDeclined(callId = SipCallId("1"), callDirection = INCOMING)
+            CallInvitationDeclined(
+                callId = SipCallId("1"),
+                callDirection = INCOMING,
+                timestamp = OffsetDateTime.now(clock)
+            )
         ))
     }
 }

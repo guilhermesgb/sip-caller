@@ -8,6 +8,16 @@ interface FakeLinphoneContextApi {
 
     fun failSynchronouslyOnLinphoneCoreIterate()
 
+    fun failSynchronouslyOnAccountCreation()
+
+    fun failAsynchronouslyOnAccountRegistration()
+
+    fun failSynchronouslyOnAccountDeactivation()
+
+    fun failAsynchronouslyOnAccountUnregistration()
+
+    fun failSynchronouslyOnAccountDestruction()
+
     fun simulateLinphoneCoreStop()
 
     fun simulateIncomingCallInvitationArrived()

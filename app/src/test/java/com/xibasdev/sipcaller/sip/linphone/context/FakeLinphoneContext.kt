@@ -1,6 +1,8 @@
 package com.xibasdev.sipcaller.sip.linphone.context
 
 import com.xibasdev.sipcaller.sip.SipCallId
+import com.xibasdev.sipcaller.sip.registering.account.AccountInfo
+import com.xibasdev.sipcaller.sip.registering.account.AccountPassword
 import java.util.LinkedList
 import java.util.Queue
 import java.util.TreeMap
@@ -25,6 +27,12 @@ import org.linphone.core.GlobalState.On
 import org.linphone.core.GlobalState.Ready
 import org.linphone.core.GlobalState.Shutdown
 import org.linphone.core.GlobalState.Startup
+import org.linphone.core.RegistrationState
+import org.linphone.core.RegistrationState.Cleared
+import org.linphone.core.RegistrationState.Failed
+import org.linphone.core.RegistrationState.None
+import org.linphone.core.RegistrationState.Ok
+import org.linphone.core.RegistrationState.Progress
 
 private typealias FakeCoreListenerStatus = Pair<FakeCoreListener, Boolean>
 private typealias LinphoneGlobalStateChange = Pair<GlobalState, String>
@@ -48,10 +56,19 @@ class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
 
     private val enqueuedGlobalStateChanges: Queue<LinphoneGlobalStateChange> = LinkedList()
     private val enqueuedCallStateChanges: Queue<LinphoneCallStateChange> = LinkedList()
+    private val enqueuedAccountRegistrationStateChanges:
+            Queue<LinphoneAccountRegistrationStateChange> = LinkedList()
+
+    private val simulatedRegistrationProgressTargetState = TreeMap<String, RegistrationState>()
 
     private var failSynchronouslyOnLinphoneCoreStart: Boolean = false
     private var failAsynchronouslyOnLinphoneCoreStart: Boolean = false
     private var failSynchronouslyOnLinphoneCoreIterate: Boolean = false
+    private var failSynchronouslyOnAccountCreation: Boolean = false
+    private var failAsynchronouslyOnAccountRegistration: Boolean = false
+    private var failSynchronouslyOnAccountDeactivation: Boolean = false
+    private var failAsynchronouslyOnAccountUnregistration: Boolean = false
+    private var failSynchronouslyOnAccountDestruction: Boolean = false
 
     private var nextSimulatedCallId: Long = 0L
 
@@ -89,6 +106,26 @@ class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
         return coreListenerId
     }
 
+    override fun createAccountRegistrationStateChangeListener(
+        callback: (
+            callStateChange: LinphoneAccountRegistrationStateChange,
+            coreListenerId: Int
+        ) -> Unit
+    ): Int {
+
+        val fakeCoreListener = object : FakeCoreListener() {
+            override fun onAccountRegistrationStateChange(
+                accountRegistrationStateChange: LinphoneAccountRegistrationStateChange
+            ) {
+                callback(accountRegistrationStateChange, this.hashCode())
+            }
+        }
+
+        val coreListenerId = fakeCoreListener.hashCode()
+        coreListeners[coreListenerId] = Pair(fakeCoreListener, false)
+        return coreListenerId
+    }
+
     override fun enableCoreListener(coreListenerId: Int) {
         if (!coreListeners.containsKey(coreListenerId)) {
             throw IllegalStateException("Core listener of ID '$$coreListenerId' not found!")
@@ -109,6 +146,64 @@ class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
 
             coreListeners[coreListenerId] = listenerStatus.copy(second = false)
         }
+    }
+
+    override fun createAccount(
+        idKey: String,
+        accountInfo: AccountInfo,
+        password: AccountPassword,
+        expirationMs: Int
+    ): Boolean {
+
+        enqueueAccountRegistrationStateChange(
+            LinphoneAccountRegistrationStateChange(
+                idKey = idKey,
+                state = None,
+                errorReason = ""
+            )
+        )
+
+        if (failAsynchronouslyOnAccountRegistration) {
+            simulatedRegistrationProgressTargetState[idKey] = Failed
+        } else {
+            simulatedRegistrationProgressTargetState[idKey] = Ok
+        }
+
+        enqueueAccountRegistrationStateChange(
+            LinphoneAccountRegistrationStateChange(
+                idKey = idKey,
+                state = Progress,
+                errorReason = ""
+            )
+        )
+
+        return !failSynchronouslyOnAccountCreation
+    }
+
+    override fun deactivateAccount(idKey: String): Boolean {
+        if (failAsynchronouslyOnAccountUnregistration) {
+            simulatedRegistrationProgressTargetState[idKey] = Failed
+        } else {
+            simulatedRegistrationProgressTargetState[idKey] = Cleared
+        }
+
+        enqueueAccountRegistrationStateChange(
+            LinphoneAccountRegistrationStateChange(
+                idKey = idKey,
+                state = Progress,
+                errorReason = ""
+            )
+        )
+
+        return !failSynchronouslyOnAccountDeactivation
+    }
+
+    override fun destroyAccount(
+        idKey: String,
+        accountInfo: AccountInfo,
+        password: AccountPassword
+    ): Boolean {
+        return !failSynchronouslyOnAccountDestruction
     }
 
     override fun startLinphoneCore(): Int {
@@ -145,9 +240,28 @@ class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
         }
 
         if (enqueuedGlobalStateChanges.isEmpty() && currentGlobalState == On) {
-            enqueuedCallStateChanges.poll()?.let { call ->
+            enqueuedCallStateChanges.poll()?.let { callStateChange ->
 
-                postCallStateChange(call)
+                postCallStateChange(callStateChange)
+            }
+
+            enqueuedAccountRegistrationStateChanges.poll()?.let {
+                    linphoneAccountRegistrationStateChange ->
+
+                postAccountRegistrationStateChange(linphoneAccountRegistrationStateChange)
+
+                if (linphoneAccountRegistrationStateChange.state == Progress) {
+                    simulatedRegistrationProgressTargetState[
+                            linphoneAccountRegistrationStateChange.idKey
+                    ]?.let { registrationState ->
+
+                        enqueueAccountRegistrationStateChange(
+                            linphoneAccountRegistrationStateChange.copy(
+                                state = registrationState
+                            )
+                        )
+                    }
+                }
             }
         }
 
@@ -168,6 +282,26 @@ class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
 
     override fun failSynchronouslyOnLinphoneCoreIterate() {
         failSynchronouslyOnLinphoneCoreIterate = true
+    }
+
+    override fun failSynchronouslyOnAccountCreation() {
+        failSynchronouslyOnAccountCreation = true
+    }
+
+    override fun failAsynchronouslyOnAccountRegistration() {
+        failAsynchronouslyOnAccountRegistration = true
+    }
+
+    override fun failSynchronouslyOnAccountDeactivation() {
+        failSynchronouslyOnAccountDeactivation = true
+    }
+
+    override fun failAsynchronouslyOnAccountUnregistration() {
+        failAsynchronouslyOnAccountUnregistration = true
+    }
+
+    override fun failSynchronouslyOnAccountDestruction() {
+        failSynchronouslyOnAccountDestruction = true
     }
 
     override fun simulateLinphoneCoreStop() {
@@ -319,6 +453,25 @@ class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
 
             if (isEnabled) {
                 coreListener.onCallStateChange(callStateChange)
+            }
+        }
+    }
+
+    private fun enqueueAccountRegistrationStateChange(
+        accountRegistrationStateChange: LinphoneAccountRegistrationStateChange
+    ) {
+
+        enqueuedAccountRegistrationStateChanges.offer(accountRegistrationStateChange)
+    }
+
+    private fun postAccountRegistrationStateChange(
+        accountRegistrationStateChange: LinphoneAccountRegistrationStateChange
+    ) {
+
+        coreListeners.values.forEach { (coreListener, isEnabled) ->
+
+            if (isEnabled) {
+                coreListener.onAccountRegistrationStateChange(accountRegistrationStateChange)
             }
         }
     }

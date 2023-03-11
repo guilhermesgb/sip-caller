@@ -2,6 +2,11 @@ package com.xibasdev.sipcaller.sip
 
 import com.xibasdev.sipcaller.processing.worker.CALL_PROCESSING_RATE_MS
 import com.xibasdev.sipcaller.sip.history.CallHistoryUpdate
+import com.xibasdev.sipcaller.sip.registering.AccountRegistrationUpdate
+import com.xibasdev.sipcaller.sip.registering.account.AccountDisplayName
+import com.xibasdev.sipcaller.sip.registering.account.AccountPassword
+import com.xibasdev.sipcaller.sip.registering.account.AccountUsername
+import com.xibasdev.sipcaller.sip.registering.account.address.AccountAddress
 import io.reactivex.rxjava3.core.Completable
 import io.reactivex.rxjava3.core.Observable
 import javax.inject.Inject
@@ -64,6 +69,24 @@ class FakeSipEngine @Inject constructor() : SipEngineApi, FakeSipEngineApi {
     }
 
     override fun observeCallHistory(): Observable<List<CallHistoryUpdate>> {
+        TODO("Not yet implemented")
+    }
+
+    override fun observeRegistrations(): Observable<AccountRegistrationUpdate> {
+        TODO("Not yet implemented")
+    }
+
+    override fun createRegistration(
+        displayName: AccountDisplayName,
+        username: AccountUsername,
+        password: AccountPassword,
+        address: AccountAddress,
+        expirationMs: Int
+    ): Completable {
+        TODO("Not yet implemented")
+    }
+
+    override fun destroyRegistration(): Completable {
         TODO("Not yet implemented")
     }
 }

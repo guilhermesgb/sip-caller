@@ -7,4 +7,8 @@ open class FakeCoreListener {
     open fun onGlobalStateChange(globalState: GlobalState, errorReason: String) {}
 
     open fun onCallStateChange(callStateChange: LinphoneCallStateChange) {}
+
+    open fun onAccountRegistrationStateChange(
+        accountRegistrationStateChange: LinphoneAccountRegistrationStateChange
+    ) {}
 }

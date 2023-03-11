@@ -26,6 +26,8 @@ import com.xibasdev.sipcaller.sip.linphone.context.LinphoneContextApi
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.subjects.BehaviorSubject
 import io.reactivex.rxjava3.subjects.ReplaySubject
+import java.time.Clock
+import java.time.OffsetDateTime
 import java.util.TreeMap
 import javax.inject.Inject
 import javax.inject.Named
@@ -46,11 +48,12 @@ import org.linphone.core.Call.Status.Success
 
 class LinphoneCallHistoryObserver @Inject constructor(
     private val linphoneContext: LinphoneContextApi,
-    @Named("SipEngineLogger") private val logger: Logger
+    @Named("SipEngineLogger") private val logger: Logger,
+    @Named("LinphoneSipEngineClock") private val clock: Clock
 ) : CallHistoryObserverApi {
 
     override fun observeCallHistory(): Observable<List<CallHistoryUpdate>> {
-        return callHistoryObserver
+        return callHistory
     }
 
     private val currentCallHistoryUpdates = TreeMap<String, CallHistoryUpdate>()
@@ -64,7 +67,7 @@ class LinphoneCallHistoryObserver @Inject constructor(
         }
     }
 
-    private val callHistoryObserver = ReplaySubject.create<List<CallHistoryUpdate>>().apply {
+    private val callHistory = ReplaySubject.create<List<CallHistoryUpdate>>().apply {
         processCallHistoryUpdates(this)
     }
 
@@ -156,30 +159,37 @@ class LinphoneCallHistoryObserver @Inject constructor(
 
     context (LinphoneCallStateChange)
     private fun <T : CallHistoryUpdate> postCallHistoryUpdate(
-        updateCreator: (SipCallId, SipCallDirection) -> T
+        updateCreator: (SipCallId, SipCallDirection, OffsetDateTime) -> T
     ) {
 
-        val update = updateCreator(createSipCallId(callId), createSipCallDirection(direction))
+        val update = updateCreator(
+            createSipCallId(callId),
+            createSipCallDirection(direction),
+            OffsetDateTime.now(clock)
+        )
         currentCallHistoryUpdates[callId] = update
         latestCallHistoryUpdates.onNext(update)
     }
 
     context (LinphoneCallStateChange)
     private fun <T : CallHistoryUpdate> postConditionalCallHistoryUpdate(
-        updateCreatorIfCallFinishedByLocalParty: (SipCallId, SipCallDirection) -> T,
-        updateCreatorIfCallFinishedByRemoteParty: (SipCallId, SipCallDirection) -> T,
+        updateCreatorIfCallFinishedLocally: (SipCallId, SipCallDirection, OffsetDateTime) -> T,
+        updateCreatorIfCallFinishedRemotely: (SipCallId, SipCallDirection, OffsetDateTime) -> T,
     ) {
 
-        val updateIfFinishedByLocalParty = updateCreatorIfCallFinishedByLocalParty(
-            createSipCallId(callId), createSipCallDirection(direction)
+        val timestamp = OffsetDateTime.now(clock)
+
+        val updateIfFinishedByLocalParty = updateCreatorIfCallFinishedLocally(
+            createSipCallId(callId), createSipCallDirection(direction), timestamp
         )
-        val updateIfFinishedByRemoteParty = updateCreatorIfCallFinishedByRemoteParty(
-            createSipCallId(callId), createSipCallDirection(direction)
+        val updateIfFinishedByRemoteParty = updateCreatorIfCallFinishedRemotely(
+            createSipCallId(callId), createSipCallDirection(direction), timestamp
         )
 
         val conditionalUpdate = ConditionalCallHistoryUpdate(
             createSipCallId(callId), createSipCallDirection(direction),
-            updateIfFinishedByLocalParty, updateIfFinishedByRemoteParty
+            updateIfFinishedByLocalParty, updateIfFinishedByRemoteParty,
+            timestamp
         )
         currentCallHistoryUpdates[callId] = conditionalUpdate
         latestCallHistoryUpdates.onNext(conditionalUpdate)
@@ -187,13 +197,14 @@ class LinphoneCallHistoryObserver @Inject constructor(
 
     context (LinphoneCallStateChange)
     private fun <T : CallFailedUpdate> postCallFailedUpdate(
-        updateCreator: (SipCallId, SipCallDirection, SipCallErrorReason) -> T
+        updateCreator: (SipCallId, SipCallDirection, SipCallErrorReason, OffsetDateTime) -> T
     ) {
 
         val update = updateCreator(
             createSipCallId(callId),
             createSipCallDirection(direction),
-            createSipCallErrorReason(errorReason)
+            createSipCallErrorReason(errorReason),
+            OffsetDateTime.now(clock)
         )
         currentCallHistoryUpdates[callId] = update
         latestCallHistoryUpdates.onNext(update)
@@ -203,7 +214,7 @@ class LinphoneCallHistoryObserver @Inject constructor(
         with (linphoneContext) {
             doWhenLinphoneCoreStartsOrStops(subject) { isLinphoneCoreStarted ->
 
-                logger.d("Observer detected Linphone core " +
+                logger.d("Call history observer detected Linphone core " +
                         (if (isLinphoneCoreStarted) "start!" else "stop!"))
 
                 if (isLinphoneCoreStarted) {
