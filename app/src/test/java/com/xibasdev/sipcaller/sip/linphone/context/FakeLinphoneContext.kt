@@ -72,6 +72,9 @@ class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
 
     private var nextSimulatedCallId: Long = 0L
 
+    private var simulateStuckWhileRegisteringAccount: Boolean = false
+    private var simulateStuckWhileUnregisteringAccount: Boolean = false
+
     override fun getCurrentGlobalState(): GlobalState {
         return currentGlobalState
     }
@@ -165,6 +168,10 @@ class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
 
         if (failAsynchronouslyOnAccountRegistration) {
             simulatedRegistrationProgressTargetState[idKey] = Failed
+
+        } else if (simulateStuckWhileRegisteringAccount) {
+            simulatedRegistrationProgressTargetState[idKey] = Progress
+
         } else {
             simulatedRegistrationProgressTargetState[idKey] = Ok
         }
@@ -183,6 +190,10 @@ class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
     override fun deactivateAccount(idKey: String): Boolean {
         if (failAsynchronouslyOnAccountUnregistration) {
             simulatedRegistrationProgressTargetState[idKey] = Failed
+
+        } else if (simulateStuckWhileUnregisteringAccount) {
+            simulatedRegistrationProgressTargetState[idKey] = Progress
+
         } else {
             simulatedRegistrationProgressTargetState[idKey] = Cleared
         }
@@ -255,11 +266,23 @@ class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
                             linphoneAccountRegistrationStateChange.idKey
                     ]?.let { registrationState ->
 
-                        enqueueAccountRegistrationStateChange(
-                            linphoneAccountRegistrationStateChange.copy(
-                                state = registrationState
-                            )
-                        )
+                        if (registrationState != Progress) {
+                            if (registrationState == Failed) {
+                                enqueueAccountRegistrationStateChange(
+                                    linphoneAccountRegistrationStateChange.copy(
+                                        state = registrationState,
+                                        errorReason = "Fake failure"
+                                    )
+                                )
+
+                            } else {
+                                enqueueAccountRegistrationStateChange(
+                                    linphoneAccountRegistrationStateChange.copy(
+                                        state = registrationState
+                                    )
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -429,6 +452,14 @@ class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
             status = Success,
             errorReason = ""
         ))
+    }
+
+    override fun simulateStuckWhileRegisteringAccount() {
+        simulateStuckWhileRegisteringAccount = true
+    }
+
+    override fun simulateStuckWhileUnregisteringAccount() {
+        simulateStuckWhileUnregisteringAccount = true
     }
 
     private fun enqueueGlobalStateChange(globalState: GlobalState, errorReason: String = "") {

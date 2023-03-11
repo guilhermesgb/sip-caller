@@ -12,9 +12,13 @@ interface FakeLinphoneContextApi {
 
     fun failAsynchronouslyOnAccountRegistration()
 
+    fun simulateStuckWhileRegisteringAccount()
+
     fun failSynchronouslyOnAccountDeactivation()
 
     fun failAsynchronouslyOnAccountUnregistration()
+
+    fun simulateStuckWhileUnregisteringAccount()
 
     fun failSynchronouslyOnAccountDestruction()
 

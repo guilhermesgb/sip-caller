@@ -335,13 +335,15 @@ class LinphoneAccountRegistry @Inject constructor(
                                         RegisterAccountFailed(
                                             account = registrationUpdate.account,
                                             errorReason = registrationUpdate.errorReason
-                                        )
+                                        ),
+                                        NoAccountRegistered
                                     )
                                     DEACTIVATE -> Observable.just(
                                         UnregisterAccountFailed(
                                             account = registrationUpdate.account,
                                             errorReason = registrationUpdate.errorReason
-                                        )
+                                        ),
+                                        NoAccountRegistered
                                     )
                                 }
                                 DESTROYED -> Observable.just(
@@ -365,6 +367,6 @@ class LinphoneAccountRegistry @Inject constructor(
         subject: BehaviorSubject<AccountRegistrationUpdate>
     ): Boolean {
 
-        return subject.value == RegistryOffline || subject.value is UnregisteredAccount
+        return subject.value == RegistryOffline
     }
 }

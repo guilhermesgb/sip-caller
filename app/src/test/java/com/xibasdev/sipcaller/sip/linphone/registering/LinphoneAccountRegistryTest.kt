@@ -9,9 +9,11 @@ import com.xibasdev.sipcaller.sip.linphone.processing.LinphoneProcessingEngine
 import com.xibasdev.sipcaller.sip.processing.ProcessingEngineApi
 import com.xibasdev.sipcaller.sip.registering.AccountRegistryApi
 import com.xibasdev.sipcaller.sip.registering.NoAccountRegistered
+import com.xibasdev.sipcaller.sip.registering.RegisterAccountFailed
 import com.xibasdev.sipcaller.sip.registering.RegisteredAccount
 import com.xibasdev.sipcaller.sip.registering.RegisteringAccount
 import com.xibasdev.sipcaller.sip.registering.RegistryOffline
+import com.xibasdev.sipcaller.sip.registering.UnregisterAccountFailed
 import com.xibasdev.sipcaller.sip.registering.UnregisteredAccount
 import com.xibasdev.sipcaller.sip.registering.UnregisteringAccount
 import com.xibasdev.sipcaller.sip.registering.account.address.AccountDomainAddress
@@ -613,6 +615,392 @@ class LinphoneAccountRegistryTest {
         observable.assertNoErrors()
 
         completable.assertComplete()
+    }
+
+    @Test
+    fun `after engine is started, last account destruction prevails`() {
+        val observable = accountRegistry.observeRegistrations()
+            .prepareInForeground()
+
+        val completable = processingEngine.startEngine()
+            .andThen(accountRegistry.createRegistration(
+                displayName = DISPLAY_NAME_1,
+                username = USERNAME_1,
+                password = PASSWORD_1,
+                address = AccountDomainAddress(
+                    protocol = AccountProtocolInfo(
+                        type = PROTOCOL_1,
+                        port = PORT_1
+                    ),
+                    domain = DOMAIN_1
+                ),
+                expirationMs = EXPIRATION_MS_1
+            ))
+            .andThen(accountRegistry.createRegistration(
+                displayName = DISPLAY_NAME_2,
+                username = USERNAME_2,
+                password = PASSWORD_2,
+                address = AccountDomainAddress(
+                    protocol = AccountProtocolInfo(
+                        type = PROTOCOL_2,
+                        port = PORT_2
+                    ),
+                    domain = DOMAIN_2
+                ),
+                expirationMs = EXPIRATION_MS_2
+            ))
+            .andThen(accountRegistry.destroyRegistration())
+            .prepareInForeground()
+
+        Observable.interval(250, MILLISECONDS, TEST_SCHEDULER)
+            .flatMapCompletable {
+
+                processingEngine.processEngineSteps()
+            }
+            .prepareInForeground()
+
+        observable.simulateWaitUpToTimeout(4, SECONDS)
+
+        observable.assertNotComplete()
+        observable.assertValueCount(12)
+        observable.assertValueAt(0, RegistryOffline)
+        observable.assertValueAt(1, NoAccountRegistered)
+        observable.assertValueAt(2, RegisteringAccount(account = ACCOUNT_1))
+        observable.assertValueAt(3, RegisteredAccount(account = ACCOUNT_1))
+        observable.assertValueAt(4, UnregisteringAccount(account = ACCOUNT_1))
+        observable.assertValueAt(5, UnregisteredAccount(account = ACCOUNT_1))
+        observable.assertValueAt(6, NoAccountRegistered)
+        observable.assertValueAt(7, RegisteringAccount(account = ACCOUNT_2))
+        observable.assertValueAt(8, RegisteredAccount(account = ACCOUNT_2))
+        observable.assertValueAt(9, UnregisteringAccount(account = ACCOUNT_2))
+        observable.assertValueAt(10, UnregisteredAccount(account = ACCOUNT_2))
+        observable.assertValueAt(11, NoAccountRegistered)
+        observable.assertNoErrors()
+
+        completable.assertComplete()
+    }
+
+    @Test
+    fun `synchronous failure to create registration is observed`() {
+        linphoneContext.failSynchronouslyOnAccountCreation()
+
+        val observable = accountRegistry.observeRegistrations()
+            .prepareInForeground()
+
+        val completable = processingEngine.startEngine()
+            .andThen(accountRegistry.createRegistration(
+                displayName = DISPLAY_NAME_1,
+                username = USERNAME_1,
+                password = PASSWORD_1,
+                address = AccountDomainAddress(
+                    protocol = AccountProtocolInfo(
+                        type = PROTOCOL_1,
+                        port = PORT_1
+                    ),
+                    domain = DOMAIN_1
+                ),
+                expirationMs = EXPIRATION_MS_1
+            ))
+            .prepareInForeground()
+
+        Observable.interval(250, MILLISECONDS, TEST_SCHEDULER)
+            .flatMapCompletable {
+
+                processingEngine.processEngineSteps()
+            }
+            .prepareInForeground()
+
+        observable.simulateWaitUpToTimeout()
+
+        observable.assertNotComplete()
+        observable.assertValueCount(2)
+        observable.assertValueAt(0, RegistryOffline)
+        observable.assertValueAt(1, NoAccountRegistered)
+        observable.assertNoErrors()
+
+        completable.assertNotComplete()
+        completable.assertError(IllegalStateException::class.java)
+    }
+
+    @Test
+    fun `asynchronous failure to activate registration is observed`() {
+        linphoneContext.failAsynchronouslyOnAccountRegistration()
+
+        val observable = accountRegistry.observeRegistrations()
+            .prepareInForeground()
+
+        val completable = processingEngine.startEngine()
+            .andThen(accountRegistry.createRegistration(
+                displayName = DISPLAY_NAME_1,
+                username = USERNAME_1,
+                password = PASSWORD_1,
+                address = AccountDomainAddress(
+                    protocol = AccountProtocolInfo(
+                        type = PROTOCOL_1,
+                        port = PORT_1
+                    ),
+                    domain = DOMAIN_1
+                ),
+                expirationMs = EXPIRATION_MS_1
+            ))
+            .prepareInForeground()
+
+        Observable.interval(250, MILLISECONDS, TEST_SCHEDULER)
+            .flatMapCompletable {
+
+                processingEngine.processEngineSteps()
+            }
+            .prepareInForeground()
+
+        observable.simulateWaitUpToTimeout()
+
+        observable.assertNotComplete()
+        observable.assertValueCount(5)
+        observable.assertValueAt(0, RegistryOffline)
+        observable.assertValueAt(1, NoAccountRegistered)
+        observable.assertValueAt(2, RegisteringAccount(account = ACCOUNT_1))
+        observable.assertValueAt(3) { update ->
+
+            update is RegisterAccountFailed && update.account == ACCOUNT_1
+        }
+        observable.assertValueAt(4, NoAccountRegistered)
+        observable.assertNoErrors()
+
+        completable.assertNotComplete()
+        completable.assertError(IllegalStateException::class.java)
+    }
+
+    @Test
+    fun `if stuck while registering account, no error is observed`() {
+        linphoneContext.simulateStuckWhileRegisteringAccount()
+
+        val observable = accountRegistry.observeRegistrations()
+            .prepareInForeground()
+
+        val completable = processingEngine.startEngine()
+            .andThen(accountRegistry.createRegistration(
+                displayName = DISPLAY_NAME_1,
+                username = USERNAME_1,
+                password = PASSWORD_1,
+                address = AccountDomainAddress(
+                    protocol = AccountProtocolInfo(
+                        type = PROTOCOL_1,
+                        port = PORT_1
+                    ),
+                    domain = DOMAIN_1
+                ),
+                expirationMs = EXPIRATION_MS_1
+            ))
+            .prepareInForeground()
+
+        Observable.interval(250, MILLISECONDS, TEST_SCHEDULER)
+            .flatMapCompletable {
+
+                processingEngine.processEngineSteps()
+            }
+            .prepareInForeground()
+
+        observable.simulateWaitUpToTimeout()
+
+        observable.assertNotComplete()
+        observable.assertValueCount(3)
+        observable.assertValueAt(0, RegistryOffline)
+        observable.assertValueAt(1, NoAccountRegistered)
+        observable.assertValueAt(2, RegisteringAccount(account = ACCOUNT_1))
+        observable.assertNoErrors()
+
+        completable.assertNotComplete()
+        completable.assertNoErrors()
+    }
+
+    @Test
+    fun `synchronous failure to deactivate account is observed`() {
+        linphoneContext.failSynchronouslyOnAccountDeactivation()
+
+        val observable = accountRegistry.observeRegistrations()
+            .prepareInForeground()
+
+        val completable = processingEngine.startEngine()
+            .andThen(accountRegistry.createRegistration(
+                displayName = DISPLAY_NAME_1,
+                username = USERNAME_1,
+                password = PASSWORD_1,
+                address = AccountDomainAddress(
+                    protocol = AccountProtocolInfo(
+                        type = PROTOCOL_1,
+                        port = PORT_1
+                    ),
+                    domain = DOMAIN_1
+                ),
+                expirationMs = EXPIRATION_MS_1
+            ))
+            .andThen(accountRegistry.destroyRegistration())
+            .prepareInForeground()
+
+        Observable.interval(250, MILLISECONDS, TEST_SCHEDULER)
+            .flatMapCompletable {
+
+                processingEngine.processEngineSteps()
+            }
+            .prepareInForeground()
+
+        observable.simulateWaitUpToTimeout()
+
+        observable.assertNotComplete()
+        observable.assertValueCount(7)
+        observable.assertValueAt(0, RegistryOffline)
+        observable.assertValueAt(1, NoAccountRegistered)
+        observable.assertValueAt(2, RegisteringAccount(account = ACCOUNT_1))
+        observable.assertValueAt(3, RegisteredAccount(account = ACCOUNT_1))
+        observable.assertNoErrors()
+
+        completable.assertNotComplete()
+        completable.assertError(IllegalStateException::class.java)
+    }
+
+    @Test
+    fun `asynchronous failure to unregister account is observed`() {
+        linphoneContext.failAsynchronouslyOnAccountUnregistration()
+
+        val observable = accountRegistry.observeRegistrations()
+            .prepareInForeground()
+
+        val completable = processingEngine.startEngine()
+            .andThen(accountRegistry.createRegistration(
+                displayName = DISPLAY_NAME_1,
+                username = USERNAME_1,
+                password = PASSWORD_1,
+                address = AccountDomainAddress(
+                    protocol = AccountProtocolInfo(
+                        type = PROTOCOL_1,
+                        port = PORT_1
+                    ),
+                    domain = DOMAIN_1
+                ),
+                expirationMs = EXPIRATION_MS_1
+            ))
+            .andThen(accountRegistry.destroyRegistration())
+            .prepareInForeground()
+
+        Observable.interval(250, MILLISECONDS, TEST_SCHEDULER)
+            .flatMapCompletable {
+
+                processingEngine.processEngineSteps()
+            }
+            .prepareInForeground()
+
+        observable.simulateWaitUpToTimeout()
+
+        observable.assertNotComplete()
+        observable.assertValueCount(7)
+        observable.assertValueAt(0, RegistryOffline)
+        observable.assertValueAt(1, NoAccountRegistered)
+        observable.assertValueAt(2, RegisteringAccount(account = ACCOUNT_1))
+        observable.assertValueAt(3, RegisteredAccount(account = ACCOUNT_1))
+        observable.assertValueAt(4, UnregisteringAccount(account = ACCOUNT_1))
+        observable.assertValueAt(5) { update ->
+
+            update is UnregisterAccountFailed && update.account == ACCOUNT_1
+        }
+        observable.assertValueAt(6, NoAccountRegistered)
+        observable.assertNoErrors()
+
+        completable.assertNotComplete()
+        completable.assertError(IllegalStateException::class.java)
+    }
+
+    @Test
+    fun `synchronous failure to destroy registration is observed`() {
+        linphoneContext.failSynchronouslyOnAccountDestruction()
+
+        val observable = accountRegistry.observeRegistrations()
+            .prepareInForeground()
+
+        val completable = processingEngine.startEngine()
+            .andThen(accountRegistry.createRegistration(
+                displayName = DISPLAY_NAME_1,
+                username = USERNAME_1,
+                password = PASSWORD_1,
+                address = AccountDomainAddress(
+                    protocol = AccountProtocolInfo(
+                        type = PROTOCOL_1,
+                        port = PORT_1
+                    ),
+                    domain = DOMAIN_1
+                ),
+                expirationMs = EXPIRATION_MS_1
+            ))
+            .andThen(accountRegistry.destroyRegistration())
+            .prepareInForeground()
+
+        Observable.interval(250, MILLISECONDS, TEST_SCHEDULER)
+            .flatMapCompletable {
+
+                processingEngine.processEngineSteps()
+            }
+            .prepareInForeground()
+
+        observable.simulateWaitUpToTimeout()
+
+        observable.assertNotComplete()
+        observable.assertValueCount(7)
+        observable.assertValueAt(0, RegistryOffline)
+        observable.assertValueAt(1, NoAccountRegistered)
+        observable.assertValueAt(2, RegisteringAccount(account = ACCOUNT_1))
+        observable.assertValueAt(3, RegisteredAccount(account = ACCOUNT_1))
+        observable.assertValueAt(4, UnregisteringAccount(account = ACCOUNT_1))
+        observable.assertValueAt(5, UnregisteredAccount(account = ACCOUNT_1))
+        observable.assertValueAt(6, NoAccountRegistered)
+        observable.assertNoErrors()
+
+        completable.assertNotComplete()
+        completable.assertError(IllegalStateException::class.java)
+    }
+
+    @Test
+    fun `if stuck while unregistering account, no error is observed`() {
+        linphoneContext.simulateStuckWhileUnregisteringAccount()
+
+        val observable = accountRegistry.observeRegistrations()
+            .prepareInForeground()
+
+        val completable = processingEngine.startEngine()
+            .andThen(accountRegistry.createRegistration(
+                displayName = DISPLAY_NAME_1,
+                username = USERNAME_1,
+                password = PASSWORD_1,
+                address = AccountDomainAddress(
+                    protocol = AccountProtocolInfo(
+                        type = PROTOCOL_1,
+                        port = PORT_1
+                    ),
+                    domain = DOMAIN_1
+                ),
+                expirationMs = EXPIRATION_MS_1
+            ))
+            .andThen(accountRegistry.destroyRegistration())
+            .prepareInForeground()
+
+        Observable.interval(250, MILLISECONDS, TEST_SCHEDULER)
+            .flatMapCompletable {
+
+                processingEngine.processEngineSteps()
+            }
+            .prepareInForeground()
+
+        observable.simulateWaitUpToTimeout()
+
+        observable.assertNotComplete()
+        observable.assertValueCount(5)
+        observable.assertValueAt(0, RegistryOffline)
+        observable.assertValueAt(1, NoAccountRegistered)
+        observable.assertValueAt(2, RegisteringAccount(account = ACCOUNT_1))
+        observable.assertValueAt(3, RegisteredAccount(account = ACCOUNT_1))
+        observable.assertValueAt(4, UnregisteringAccount(account = ACCOUNT_1))
+        observable.assertNoErrors()
+
+        completable.assertNotComplete()
+        completable.assertNoErrors()
     }
 
     // TODO Test that an existing account registration can be scheduled for destruction once engine resumes
