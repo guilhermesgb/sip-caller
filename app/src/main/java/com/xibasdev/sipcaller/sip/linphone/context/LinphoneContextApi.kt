@@ -1,6 +1,7 @@
 package com.xibasdev.sipcaller.sip.linphone.context
 
 import com.xibasdev.sipcaller.sip.SipCallId
+import com.xibasdev.sipcaller.sip.protocol.ProtocolInfo
 import com.xibasdev.sipcaller.sip.registering.account.AccountInfo
 import com.xibasdev.sipcaller.sip.registering.account.AccountPassword
 import io.reactivex.rxjava3.core.Observable
@@ -36,6 +37,10 @@ abstract class LinphoneContextApi {
         ) -> Unit
     ): Int
 
+    abstract fun createNetworkReachableListener(
+        callback: (isNetworkReachable: Boolean, coreListenerId: Int) -> Unit
+    ): Int
+
     abstract fun enableCoreListener(coreListenerId: Int)
 
     abstract fun disableCoreListener(coreListenerId: Int)
@@ -54,6 +59,14 @@ abstract class LinphoneContextApi {
         accountInfo: AccountInfo,
         password: AccountPassword
     ): Boolean
+
+    abstract fun resolveNetworkCurrentlyReachable(): Boolean
+
+    abstract fun resolvePrimaryContactIpAddress(): String?
+
+    abstract fun getPrimaryContactProtocolInfo(): ProtocolInfo?
+
+    abstract fun setPrimaryContactProtocolInfo(protocolInfo: ProtocolInfo): Boolean
 
     abstract fun startLinphoneCore(): Int
 

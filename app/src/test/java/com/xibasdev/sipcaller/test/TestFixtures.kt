@@ -1,15 +1,15 @@
 package com.xibasdev.sipcaller.test
 
+import com.xibasdev.sipcaller.sip.protocol.DefinedPort
+import com.xibasdev.sipcaller.sip.protocol.ProtocolInfo
+import com.xibasdev.sipcaller.sip.protocol.ProtocolType.TCP
+import com.xibasdev.sipcaller.sip.protocol.ProtocolType.UDP
 import com.xibasdev.sipcaller.sip.registering.account.AccountDisplayName
 import com.xibasdev.sipcaller.sip.registering.account.AccountInfo
 import com.xibasdev.sipcaller.sip.registering.account.AccountPassword
 import com.xibasdev.sipcaller.sip.registering.account.AccountUsername
 import com.xibasdev.sipcaller.sip.registering.account.address.AccountDomain
 import com.xibasdev.sipcaller.sip.registering.account.address.AccountDomainAddress
-import com.xibasdev.sipcaller.sip.registering.account.address.protocol.AccountProtocolInfo
-import com.xibasdev.sipcaller.sip.registering.account.address.protocol.AccountProtocolPort
-import com.xibasdev.sipcaller.sip.registering.account.address.protocol.AccountProtocolType.TCP
-import com.xibasdev.sipcaller.sip.registering.account.address.protocol.AccountProtocolType.UDP
 
 object AccountRegistryFixtures {
 
@@ -25,8 +25,8 @@ object AccountRegistryFixtures {
     val DOMAIN_1 = AccountDomain("domain.1")
     val DOMAIN_2 = AccountDomain("domain.2")
 
-    val PORT_1 = AccountProtocolPort(5060)
-    val PORT_2 = AccountProtocolPort(5061)
+    val PORT_1 = DefinedPort(5060)
+    val PORT_2 = DefinedPort(5061)
 
     val PROTOCOL_1 = TCP
     val PROTOCOL_2 = UDP
@@ -38,7 +38,7 @@ object AccountRegistryFixtures {
         displayName = DISPLAY_NAME_1,
         username = USERNAME_1,
         address = AccountDomainAddress(
-            protocol = AccountProtocolInfo(
+            protocol = ProtocolInfo(
                 type = PROTOCOL_1,
                 port = PORT_1
             ),
@@ -49,11 +49,15 @@ object AccountRegistryFixtures {
         displayName = DISPLAY_NAME_2,
         username = USERNAME_2,
         address = AccountDomainAddress(
-            protocol = AccountProtocolInfo(
+            protocol = ProtocolInfo(
                 type = PROTOCOL_2,
                 port = PORT_2
             ),
             domain = DOMAIN_2
         )
     )
+}
+
+object IdentityResolverFixtures {
+    const val PRIMARY_CONTACT_IP_ADDRESS = "192.168.0.1"
 }

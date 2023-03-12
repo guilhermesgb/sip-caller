@@ -1,7 +1,7 @@
 package com.xibasdev.sipcaller.sip.registering.account.address
 
-import com.xibasdev.sipcaller.sip.registering.account.address.protocol.AccountProtocolInfo
+import com.xibasdev.sipcaller.sip.protocol.ProtocolInfo
 
 sealed interface AccountAddress {
-    val protocol: AccountProtocolInfo
+    val protocol: ProtocolInfo
 }

@@ -5,6 +5,7 @@ import com.elvishew.xlog.XLog
 import com.xibasdev.sipcaller.sip.linphone.LinphoneSipEngine
 import com.xibasdev.sipcaller.sip.linphone.context.FakeLinphoneContext
 import com.xibasdev.sipcaller.sip.linphone.history.LinphoneCallHistoryObserver
+import com.xibasdev.sipcaller.sip.linphone.identity.LinphoneIdentityResolver
 import com.xibasdev.sipcaller.sip.linphone.registering.LinphoneAccountRegistry
 import com.xibasdev.sipcaller.sip.processing.ProcessingEngineApi
 import com.xibasdev.sipcaller.sip.processing.ProcessingEngineProcessingFailed
@@ -40,11 +41,19 @@ class LinphoneProcessingEngineTest {
 
         linphoneContext = FakeLinphoneContext()
 
-        processingEngine = LinphoneSipEngine(
-            LinphoneProcessingEngine(linphoneContext, logger),
-            LinphoneCallHistoryObserver(linphoneContext, logger, clock),
-            LinphoneAccountRegistry(linphoneContext, logger)
+        val processingEngine = LinphoneProcessingEngine(linphoneContext, logger)
+        val callHistoryObserver = LinphoneCallHistoryObserver(linphoneContext, logger, clock)
+        val accountRegistry = LinphoneAccountRegistry(linphoneContext, logger)
+        val identityResolver = LinphoneIdentityResolver(linphoneContext, accountRegistry, logger)
+
+        val sipEngine = LinphoneSipEngine(
+            processingEngine,
+            callHistoryObserver,
+            accountRegistry,
+            identityResolver
         )
+
+        this.processingEngine = sipEngine
     }
 
     @Test

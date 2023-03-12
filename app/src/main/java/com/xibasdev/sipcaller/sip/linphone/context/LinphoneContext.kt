@@ -2,6 +2,12 @@ package com.xibasdev.sipcaller.sip.linphone.context
 
 import android.util.SparseArray
 import com.xibasdev.sipcaller.sip.linphone.di.LinphoneCore
+import com.xibasdev.sipcaller.sip.protocol.DefinedPort
+import com.xibasdev.sipcaller.sip.protocol.ProtocolInfo
+import com.xibasdev.sipcaller.sip.protocol.ProtocolType.TCP
+import com.xibasdev.sipcaller.sip.protocol.ProtocolType.UDP
+import com.xibasdev.sipcaller.sip.protocol.RandomPort
+import com.xibasdev.sipcaller.sip.protocol.SecureProtocolInfo
 import com.xibasdev.sipcaller.sip.registering.account.AccountInfo
 import com.xibasdev.sipcaller.sip.registering.account.AccountPassword
 import com.xibasdev.sipcaller.sip.registering.account.address.AccountDomainAddress
@@ -108,6 +114,22 @@ class LinphoneContext @Inject constructor(
                         this.hashCode()
                     )
                 }
+            }
+        }
+
+        val coreListenerId = coreListener.hashCode()
+        coreListeners.put(coreListenerId, coreListener)
+        return coreListenerId
+    }
+
+    override fun createNetworkReachableListener(
+        callback: (isNetworkReachable: Boolean, coreListenerId: Int) -> Unit
+    ): Int {
+
+        val coreListener = object : CoreListenerStub() {
+            override fun onNetworkReachable(core: Core, isNetworkReachable: Boolean) {
+
+                callback(isNetworkReachable, this.hashCode())
             }
         }
 
@@ -246,6 +268,64 @@ class LinphoneContext @Inject constructor(
             }
 
             return linphoneCore.getAccountByIdkey(idKey) == null
+        }
+    }
+
+    override fun resolveNetworkCurrentlyReachable(): Boolean {
+        return linphoneCore.isNetworkReachable
+    }
+
+    override fun resolvePrimaryContactIpAddress(): String? {
+        return linphoneCore.createPrimaryContactParsed()?.domain
+    }
+
+    override fun getPrimaryContactProtocolInfo(): ProtocolInfo? {
+        return if (linphoneCore.transportsUsed.tcpPort != 0) {
+            ProtocolInfo(
+                type = TCP,
+                port = DefinedPort(linphoneCore.transportsUsed.tcpPort),
+                sips = SecureProtocolInfo(
+                    enabled = linphoneCore.transportsUsed.tlsPort != 0,
+                    port = DefinedPort(linphoneCore.transportsUsed.tlsPort)
+                ),
+                srtp = SecureProtocolInfo(
+                    enabled = linphoneCore.transportsUsed.dtlsPort != 0,
+                    port = DefinedPort(linphoneCore.transportsUsed.dtlsPort)
+                )
+            )
+
+        } else if (linphoneCore.transportsUsed.udpPort != 0) {
+            ProtocolInfo(
+                type = UDP,
+                port = DefinedPort(linphoneCore.transportsUsed.udpPort),
+                sips = SecureProtocolInfo(enabled = false, port = RandomPort),
+                srtp = SecureProtocolInfo(enabled = false, port = RandomPort)
+            )
+
+        } else null
+    }
+
+    override fun setPrimaryContactProtocolInfo(protocolInfo: ProtocolInfo): Boolean {
+        with (protocolInfo) {
+            val transportProtocolsSuccessfullySet = linphoneCore.setTransports(
+                Factory.instance().createTransports().apply {
+                    when (type) {
+                        TCP -> {
+                            tcpPort = port.value
+                            tlsPort = if (sips.enabled) { sips.port.value } else 0
+                            dtlsPort = if (srtp.enabled) { srtp.port.value } else 0
+                            udpPort = 0
+                        }
+                        UDP -> {
+                            tcpPort = 0
+                            tlsPort = 0
+                            dtlsPort = 0
+                            udpPort = port.value
+                        }
+                    }
+                }
+            )
+            return transportProtocolsSuccessfullySet == 0
         }
     }
 

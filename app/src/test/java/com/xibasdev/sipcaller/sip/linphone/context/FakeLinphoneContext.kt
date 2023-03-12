@@ -1,8 +1,10 @@
 package com.xibasdev.sipcaller.sip.linphone.context
 
 import com.xibasdev.sipcaller.sip.SipCallId
+import com.xibasdev.sipcaller.sip.protocol.ProtocolInfo
 import com.xibasdev.sipcaller.sip.registering.account.AccountInfo
 import com.xibasdev.sipcaller.sip.registering.account.AccountPassword
+import com.xibasdev.sipcaller.test.IdentityResolverFixtures.PRIMARY_CONTACT_IP_ADDRESS
 import java.util.LinkedList
 import java.util.Queue
 import java.util.TreeMap
@@ -44,6 +46,9 @@ class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
 
     private val coreListeners = TreeMap<Int, FakeCoreListenerStatus>()
     private var currentGlobalState = Off
+    private var currentIsNetworkReachable = false
+    private var currentPrimaryContactIpAddress: String? = null
+    private var currentPrimaryContactProtocolInfo: ProtocolInfo? = null
 
     init {
         val globalStateChangeListener = createGlobalStateChangeListener { globalState, _, _ ->
@@ -121,6 +126,21 @@ class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
                 accountRegistrationStateChange: LinphoneAccountRegistrationStateChange
             ) {
                 callback(accountRegistrationStateChange, this.hashCode())
+            }
+        }
+
+        val coreListenerId = fakeCoreListener.hashCode()
+        coreListeners[coreListenerId] = Pair(fakeCoreListener, false)
+        return coreListenerId
+    }
+
+    override fun createNetworkReachableListener(
+        callback: (isNetworkReachable: Boolean, coreListenerId: Int) -> Unit
+    ): Int {
+
+        val fakeCoreListener = object : FakeCoreListener() {
+            override fun onNetworkReachabilityChange(isNetworkReachable: Boolean) {
+                callback(isNetworkReachable, this.hashCode())
             }
         }
 
@@ -217,6 +237,24 @@ class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
         return !failSynchronouslyOnAccountDestruction
     }
 
+    override fun resolveNetworkCurrentlyReachable(): Boolean {
+        return currentIsNetworkReachable
+    }
+
+    override fun resolvePrimaryContactIpAddress(): String? {
+        return currentPrimaryContactIpAddress
+    }
+
+    override fun getPrimaryContactProtocolInfo(): ProtocolInfo? {
+        return currentPrimaryContactProtocolInfo
+    }
+
+    override fun setPrimaryContactProtocolInfo(protocolInfo: ProtocolInfo): Boolean {
+        currentPrimaryContactProtocolInfo = protocolInfo
+
+        return true
+    }
+
     override fun startLinphoneCore(): Int {
         if (failSynchronouslyOnLinphoneCoreStart) {
             return LINPHONE_CORE_START_FAILED
@@ -226,6 +264,9 @@ class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
             Ready,
             Shutdown,
             Off -> {
+                currentIsNetworkReachable = true
+                currentPrimaryContactIpAddress = PRIMARY_CONTACT_IP_ADDRESS
+
                 enqueueGlobalStateChange(Startup)
                 enqueueGlobalStateChange(Configuring)
 

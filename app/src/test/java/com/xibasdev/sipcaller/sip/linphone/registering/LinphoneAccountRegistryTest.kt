@@ -5,8 +5,10 @@ import com.elvishew.xlog.XLog
 import com.xibasdev.sipcaller.sip.linphone.LinphoneSipEngine
 import com.xibasdev.sipcaller.sip.linphone.context.FakeLinphoneContext
 import com.xibasdev.sipcaller.sip.linphone.history.LinphoneCallHistoryObserver
+import com.xibasdev.sipcaller.sip.linphone.identity.LinphoneIdentityResolver
 import com.xibasdev.sipcaller.sip.linphone.processing.LinphoneProcessingEngine
 import com.xibasdev.sipcaller.sip.processing.ProcessingEngineApi
+import com.xibasdev.sipcaller.sip.protocol.ProtocolInfo
 import com.xibasdev.sipcaller.sip.registering.AccountRegistryApi
 import com.xibasdev.sipcaller.sip.registering.NoAccountRegistered
 import com.xibasdev.sipcaller.sip.registering.RegisterAccountFailed
@@ -17,7 +19,6 @@ import com.xibasdev.sipcaller.sip.registering.UnregisterAccountFailed
 import com.xibasdev.sipcaller.sip.registering.UnregisteredAccount
 import com.xibasdev.sipcaller.sip.registering.UnregisteringAccount
 import com.xibasdev.sipcaller.sip.registering.account.address.AccountDomainAddress
-import com.xibasdev.sipcaller.sip.registering.account.address.protocol.AccountProtocolInfo
 import com.xibasdev.sipcaller.test.AccountRegistryFixtures.ACCOUNT_1
 import com.xibasdev.sipcaller.test.AccountRegistryFixtures.ACCOUNT_2
 import com.xibasdev.sipcaller.test.AccountRegistryFixtures.DISPLAY_NAME_1
@@ -69,13 +70,20 @@ class LinphoneAccountRegistryTest {
 
         linphoneContext = FakeLinphoneContext()
 
+        val processingEngine = LinphoneProcessingEngine(linphoneContext, logger)
+        val callHistoryObserver = LinphoneCallHistoryObserver(linphoneContext, logger, clock)
+        val accountRegistry = LinphoneAccountRegistry(linphoneContext, logger)
+        val identityResolver = LinphoneIdentityResolver(linphoneContext, accountRegistry, logger)
+
         val sipEngine = LinphoneSipEngine(
-            LinphoneProcessingEngine(linphoneContext, logger),
-            LinphoneCallHistoryObserver(linphoneContext, logger, clock),
-            LinphoneAccountRegistry(linphoneContext, logger)
+            processingEngine,
+            callHistoryObserver,
+            accountRegistry,
+            identityResolver
         )
-        processingEngine = sipEngine
-        accountRegistry = sipEngine
+
+        this.processingEngine = sipEngine
+        this.accountRegistry = sipEngine
     }
 
     @Test
@@ -133,7 +141,7 @@ class LinphoneAccountRegistryTest {
                 username = USERNAME_1,
                 password = PASSWORD_1,
                 address = AccountDomainAddress(
-                    protocol = AccountProtocolInfo(
+                    protocol = ProtocolInfo(
                         type = PROTOCOL_1,
                         port = PORT_1
                     ),
@@ -170,7 +178,7 @@ class LinphoneAccountRegistryTest {
                 username = USERNAME_1,
                 password = PASSWORD_1,
                 address = AccountDomainAddress(
-                    protocol = AccountProtocolInfo(
+                    protocol = ProtocolInfo(
                         type = PROTOCOL_1,
                         port = PORT_1
                     ),
@@ -211,7 +219,7 @@ class LinphoneAccountRegistryTest {
                 username = USERNAME_1,
                 password = PASSWORD_1,
                 address = AccountDomainAddress(
-                    protocol = AccountProtocolInfo(
+                    protocol = ProtocolInfo(
                         type = PROTOCOL_1,
                         port = PORT_1
                     ),
@@ -256,7 +264,7 @@ class LinphoneAccountRegistryTest {
                 username = USERNAME_1,
                 password = PASSWORD_1,
                 address = AccountDomainAddress(
-                    protocol = AccountProtocolInfo(
+                    protocol = ProtocolInfo(
                         type = PROTOCOL_1,
                         port = PORT_1
                     ),
@@ -279,7 +287,7 @@ class LinphoneAccountRegistryTest {
                 username = USERNAME_1,
                 password = PASSWORD_1,
                 address = AccountDomainAddress(
-                    protocol = AccountProtocolInfo(
+                    protocol = ProtocolInfo(
                         type = PROTOCOL_1,
                         port = PORT_1
                     ),
@@ -315,7 +323,7 @@ class LinphoneAccountRegistryTest {
                 username = USERNAME_1,
                 password = PASSWORD_1,
                 address = AccountDomainAddress(
-                    protocol = AccountProtocolInfo(
+                    protocol = ProtocolInfo(
                         type = PROTOCOL_1,
                         port = PORT_1
                     ),
@@ -360,7 +368,7 @@ class LinphoneAccountRegistryTest {
                 username = USERNAME_1,
                 password = PASSWORD_1,
                 address = AccountDomainAddress(
-                    protocol = AccountProtocolInfo(
+                    protocol = ProtocolInfo(
                         type = PROTOCOL_1,
                         port = PORT_1
                     ),
@@ -457,7 +465,7 @@ class LinphoneAccountRegistryTest {
                 username = USERNAME_1,
                 password = PASSWORD_1,
                 address = AccountDomainAddress(
-                    protocol = AccountProtocolInfo(
+                    protocol = ProtocolInfo(
                         type = PROTOCOL_1,
                         port = PORT_1
                     ),
@@ -506,7 +514,7 @@ class LinphoneAccountRegistryTest {
                 username = USERNAME_1,
                 password = PASSWORD_1,
                 address = AccountDomainAddress(
-                    protocol = AccountProtocolInfo(
+                    protocol = ProtocolInfo(
                         type = PROTOCOL_1,
                         port = PORT_1
                     ),
@@ -519,7 +527,7 @@ class LinphoneAccountRegistryTest {
                 username = USERNAME_2,
                 password = PASSWORD_2,
                 address = AccountDomainAddress(
-                    protocol = AccountProtocolInfo(
+                    protocol = ProtocolInfo(
                         type = PROTOCOL_2,
                         port = PORT_2
                     ),
@@ -569,7 +577,7 @@ class LinphoneAccountRegistryTest {
                 username = USERNAME_1,
                 password = PASSWORD_1,
                 address = AccountDomainAddress(
-                    protocol = AccountProtocolInfo(
+                    protocol = ProtocolInfo(
                         type = PROTOCOL_1,
                         port = PORT_1
                     ),
@@ -582,7 +590,7 @@ class LinphoneAccountRegistryTest {
                 username = USERNAME_2,
                 password = PASSWORD_2,
                 address = AccountDomainAddress(
-                    protocol = AccountProtocolInfo(
+                    protocol = ProtocolInfo(
                         type = PROTOCOL_2,
                         port = PORT_2
                     ),
@@ -628,7 +636,7 @@ class LinphoneAccountRegistryTest {
                 username = USERNAME_1,
                 password = PASSWORD_1,
                 address = AccountDomainAddress(
-                    protocol = AccountProtocolInfo(
+                    protocol = ProtocolInfo(
                         type = PROTOCOL_1,
                         port = PORT_1
                     ),
@@ -641,7 +649,7 @@ class LinphoneAccountRegistryTest {
                 username = USERNAME_2,
                 password = PASSWORD_2,
                 address = AccountDomainAddress(
-                    protocol = AccountProtocolInfo(
+                    protocol = ProtocolInfo(
                         type = PROTOCOL_2,
                         port = PORT_2
                     ),
@@ -693,7 +701,7 @@ class LinphoneAccountRegistryTest {
                 username = USERNAME_1,
                 password = PASSWORD_1,
                 address = AccountDomainAddress(
-                    protocol = AccountProtocolInfo(
+                    protocol = ProtocolInfo(
                         type = PROTOCOL_1,
                         port = PORT_1
                     ),
@@ -735,7 +743,7 @@ class LinphoneAccountRegistryTest {
                 username = USERNAME_1,
                 password = PASSWORD_1,
                 address = AccountDomainAddress(
-                    protocol = AccountProtocolInfo(
+                    protocol = ProtocolInfo(
                         type = PROTOCOL_1,
                         port = PORT_1
                     ),
@@ -783,7 +791,7 @@ class LinphoneAccountRegistryTest {
                 username = USERNAME_1,
                 password = PASSWORD_1,
                 address = AccountDomainAddress(
-                    protocol = AccountProtocolInfo(
+                    protocol = ProtocolInfo(
                         type = PROTOCOL_1,
                         port = PORT_1
                     ),
@@ -826,7 +834,7 @@ class LinphoneAccountRegistryTest {
                 username = USERNAME_1,
                 password = PASSWORD_1,
                 address = AccountDomainAddress(
-                    protocol = AccountProtocolInfo(
+                    protocol = ProtocolInfo(
                         type = PROTOCOL_1,
                         port = PORT_1
                     ),
@@ -871,7 +879,7 @@ class LinphoneAccountRegistryTest {
                 username = USERNAME_1,
                 password = PASSWORD_1,
                 address = AccountDomainAddress(
-                    protocol = AccountProtocolInfo(
+                    protocol = ProtocolInfo(
                         type = PROTOCOL_1,
                         port = PORT_1
                     ),
@@ -922,7 +930,7 @@ class LinphoneAccountRegistryTest {
                 username = USERNAME_1,
                 password = PASSWORD_1,
                 address = AccountDomainAddress(
-                    protocol = AccountProtocolInfo(
+                    protocol = ProtocolInfo(
                         type = PROTOCOL_1,
                         port = PORT_1
                     ),
@@ -970,7 +978,7 @@ class LinphoneAccountRegistryTest {
                 username = USERNAME_1,
                 password = PASSWORD_1,
                 address = AccountDomainAddress(
-                    protocol = AccountProtocolInfo(
+                    protocol = ProtocolInfo(
                         type = PROTOCOL_1,
                         port = PORT_1
                     ),

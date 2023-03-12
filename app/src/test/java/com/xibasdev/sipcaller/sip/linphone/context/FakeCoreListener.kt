@@ -11,4 +11,6 @@ open class FakeCoreListener {
     open fun onAccountRegistrationStateChange(
         accountRegistrationStateChange: LinphoneAccountRegistrationStateChange
     ) {}
+
+    open fun onNetworkReachabilityChange(isNetworkReachable: Boolean) {}
 }
