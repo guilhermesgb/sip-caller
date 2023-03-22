@@ -8,10 +8,10 @@ import androidx.work.OneTimeWorkRequest
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.rxjava3.RxWorker
-import com.xibasdev.sipcaller.dto.processing.CallProcessing
-import com.xibasdev.sipcaller.dto.processing.CallProcessingFailed
-import com.xibasdev.sipcaller.dto.processing.CallProcessingStarted
-import com.xibasdev.sipcaller.dto.processing.CallProcessingSuspended
+import com.xibasdev.sipcaller.processing.dto.CallProcessing
+import com.xibasdev.sipcaller.processing.dto.CallProcessingFailed
+import com.xibasdev.sipcaller.processing.dto.CallProcessingStarted
+import com.xibasdev.sipcaller.processing.dto.CallProcessingSuspended
 import com.xibasdev.sipcaller.processing.util.InfiniteWorkFailed
 import com.xibasdev.sipcaller.processing.util.InfiniteWorkMissing
 import com.xibasdev.sipcaller.processing.util.InfiniteWorkOngoing

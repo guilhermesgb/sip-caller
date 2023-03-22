@@ -1,7 +1,8 @@
 package com.xibasdev.sipcaller.sip.history
 
-import com.xibasdev.sipcaller.sip.SipCallDirection
-import com.xibasdev.sipcaller.sip.SipCallId
+import com.xibasdev.sipcaller.sip.calling.CallDirection
+import com.xibasdev.sipcaller.sip.calling.CallId
+import com.xibasdev.sipcaller.sip.registering.account.AccountInfo
 import java.time.OffsetDateTime
 
 /**
@@ -16,7 +17,9 @@ import java.time.OffsetDateTime
  */
 sealed interface CallHistoryUpdate {
 
-    val callId: SipCallId
-    val callDirection: SipCallDirection
+    val callId: CallId
+    val callDirection: CallDirection
     val timestamp: OffsetDateTime
+    val localAccount: AccountInfo
+    val remoteAccount: AccountInfo
 }

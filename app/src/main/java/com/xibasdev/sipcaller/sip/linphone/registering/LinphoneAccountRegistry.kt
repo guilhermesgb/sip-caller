@@ -1,7 +1,6 @@
 package com.xibasdev.sipcaller.sip.linphone.registering
 
 import com.elvishew.xlog.Logger
-import com.xibasdev.sipcaller.sip.SipRegisterId
 import com.xibasdev.sipcaller.sip.linphone.context.LinphoneAccountRegistrationStateChange
 import com.xibasdev.sipcaller.sip.linphone.context.LinphoneContextApi
 import com.xibasdev.sipcaller.sip.linphone.registering.LinphoneAccountRegistry.InternalAccountRegistrationIntent.ACTIVATE
@@ -17,32 +16,34 @@ import com.xibasdev.sipcaller.sip.registering.AccountRegistrationUpdate
 import com.xibasdev.sipcaller.sip.registering.AccountRegistryApi
 import com.xibasdev.sipcaller.sip.registering.NoAccountRegistered
 import com.xibasdev.sipcaller.sip.registering.RegisterAccountFailed
+import com.xibasdev.sipcaller.sip.registering.RegisterId
 import com.xibasdev.sipcaller.sip.registering.RegisteredAccount
 import com.xibasdev.sipcaller.sip.registering.RegisteringAccount
 import com.xibasdev.sipcaller.sip.registering.RegistryOffline
 import com.xibasdev.sipcaller.sip.registering.UnregisterAccountFailed
 import com.xibasdev.sipcaller.sip.registering.UnregisteredAccount
 import com.xibasdev.sipcaller.sip.registering.UnregisteringAccount
-import com.xibasdev.sipcaller.sip.registering.account.AccountDisplayName
 import com.xibasdev.sipcaller.sip.registering.account.AccountInfo
 import com.xibasdev.sipcaller.sip.registering.account.AccountPassword
-import com.xibasdev.sipcaller.sip.registering.account.AccountUsername
-import com.xibasdev.sipcaller.sip.registering.account.address.AccountAddress
 import io.reactivex.rxjava3.core.Completable
 import io.reactivex.rxjava3.core.Observable
+import io.reactivex.rxjava3.core.Scheduler
 import io.reactivex.rxjava3.core.Single
 import io.reactivex.rxjava3.subjects.BehaviorSubject
 import java.util.TreeMap
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Named
+import javax.inject.Singleton
 import org.linphone.core.RegistrationState.Cleared
 import org.linphone.core.RegistrationState.Failed
 import org.linphone.core.RegistrationState.None
 import org.linphone.core.RegistrationState.Ok
 import org.linphone.core.RegistrationState.Progress
 
+@Singleton
 class LinphoneAccountRegistry @Inject constructor(
+    @Named("LinphoneRxScheduler") private val scheduler: Scheduler,
     private val linphoneContext: LinphoneContextApi,
     @Named("SipEngineLogger") private val logger: Logger
 ) : AccountRegistryApi {
@@ -63,7 +64,7 @@ class LinphoneAccountRegistry @Inject constructor(
     }
 
     private data class InternalAccountRegistration(
-        val registerId: SipRegisterId = SipRegisterId(UUID.randomUUID().toString()),
+        val registerId: RegisterId = RegisterId(UUID.randomUUID().toString()),
         val intent: InternalAccountRegistrationIntent = UNDEFINED,
         val status: InternalAccountRegistrationStatus = DESTROYED,
         val account: AccountInfo = AccountInfo(),
@@ -71,14 +72,6 @@ class LinphoneAccountRegistry @Inject constructor(
         val expirationMs: Int = 0,
         val errorReason: String = ""
     )
-
-    override fun observeRegistrations(): Observable<AccountRegistrationUpdate> {
-        return exposedAccountRegistrationUpdates
-    }
-
-    private val accountRegistrationUpdates = TreeMap<String, InternalAccountRegistration>()
-    private val latestAccountRegistrationUpdates = BehaviorSubject
-        .createDefault(InternalAccountRegistration())
 
     private val accountRegistrationStateChangeListenerId = linphoneContext
         .createAccountRegistrationStateChangeListener { accountRegistrationStateChange, _ ->
@@ -88,10 +81,18 @@ class LinphoneAccountRegistry @Inject constructor(
             }
         }
 
+    private val accountRegistrationUpdates = TreeMap<String, InternalAccountRegistration>()
+    private val latestAccountRegistrationUpdates = BehaviorSubject
+        .createDefault(InternalAccountRegistration())
+
     private val exposedAccountRegistrationUpdates = BehaviorSubject
         .create<AccountRegistrationUpdate>().apply {
             processAccountRegistrationHistoryUpdates(this)
         }
+
+    override fun observeRegistrations(): Observable<AccountRegistrationUpdate> {
+        return exposedAccountRegistrationUpdates
+    }
 
     context (LinphoneAccountRegistrationStateChange)
     private fun processAccountRegistrationStateChange() {
@@ -115,24 +116,16 @@ class LinphoneAccountRegistry @Inject constructor(
     }
 
     override fun createRegistration(
-        displayName: AccountDisplayName,
-        username: AccountUsername,
+        account: AccountInfo,
         password: AccountPassword,
-        address: AccountAddress,
         expirationMs: Int
     ): Completable {
 
-        val requestedAccountInfo = AccountInfo(
-            displayName = displayName,
-            username = username,
-            address = address
-        )
-
         val requestedRegistration = InternalAccountRegistration(
-            registerId = SipRegisterId(UUID.randomUUID().toString()),
+            registerId = RegisterId(UUID.randomUUID().toString()),
             intent = ACTIVATE,
             status = REQUESTED,
-            account = requestedAccountInfo,
+            account = account,
             password = password,
             expirationMs = expirationMs
         )
@@ -141,40 +134,49 @@ class LinphoneAccountRegistry @Inject constructor(
     }
 
     private fun doCreateRegistration(
-        requestedRegistration: InternalAccountRegistration,
+        requested: InternalAccountRegistration,
     ): Completable {
 
-        return latestAccountRegistrationUpdates.firstElement().flatMapCompletable { registration ->
+        return latestAccountRegistrationUpdates
+            .subscribeOn(scheduler)
+            .firstElement()
+            .flatMapCompletable { registration ->
 
-            if (registration.intent == ACTIVATE) {
-                return@flatMapCompletable handleExistingRegistration(
-                    registration,
-                    requestedRegistration
-                )
-            }
-
-            latestAccountRegistrationUpdates
-                .startWith(Single.just(requestedRegistration))
-                .doOnSubscribe {
-                    createAccountForRegistration(requestedRegistration)
+                if (registration.intent == ACTIVATE) {
+                    return@flatMapCompletable handleExistingRegistration(
+                        registration,
+                        requested
+                    )
                 }
-                .filter { nextUpdate -> nextUpdate.registerId == requestedRegistration.registerId }
-                .takeUntil { nextUpdate -> nextUpdate.status == ACTIVATED }
-                .flatMapCompletable { nextUpdate ->
 
-                    if (nextUpdate.status == FAILED) {
-                        Completable.error(
-                            IllegalStateException(
-                                "Failed (async) to register using " +
-                                        "account ${nextUpdate.account}!"
-                            )
-                        )
-
-                    } else {
-                        Completable.complete()
+                latestAccountRegistrationUpdates
+                    .startWith(Single.just(requested))
+                    .doOnSubscribe {
+                        createAccountForRegistration(requested)
                     }
-                }
-        }
+                    .filter { nextUpdate -> nextUpdate.registerId == requested.registerId &&
+                            nextUpdate.intent == ACTIVATE
+                    }
+                    .takeUntil { nextUpdate -> nextUpdate.status == ACTIVATED }
+                    .flatMapCompletable { nextUpdate ->
+
+                        if (nextUpdate.status == FAILED) {
+                            destroyRegistration()
+                                .onErrorComplete()
+                                .andThen(
+                                    Completable.error(
+                                        IllegalStateException(
+                                            "Failed (async) to register using " +
+                                                    "account ${nextUpdate.account}!"
+                                        )
+                                    )
+                                )
+
+                        } else {
+                            Completable.complete()
+                        }
+                    }
+            }
     }
 
     private fun handleExistingRegistration(
@@ -212,38 +214,52 @@ class LinphoneAccountRegistry @Inject constructor(
     }
 
     override fun destroyRegistration(): Completable {
-        return latestAccountRegistrationUpdates.firstElement().flatMapCompletable { registration ->
+        return latestAccountRegistrationUpdates
+            .subscribeOn(scheduler)
+            .firstElement()
+            .flatMapCompletable { registration ->
 
-            if (registration.intent != ACTIVATE) {
-                return@flatMapCompletable handleExistingUnregistration(registration)
-            }
+                if (registration.intent != ACTIVATE) {
+                    return@flatMapCompletable handleExistingUnregistration(registration)
 
-            latestAccountRegistrationUpdates
-                .startWith(Single.just(registration.copy(
-                    intent = DEACTIVATE,
-                    status = REQUESTED
-                )))
-                .doOnSubscribe {
-                    deactivateRegistrationOfAccount(registration)
-                }
-                .filter { nextUpdate -> nextUpdate.registerId == registration.registerId }
-                .takeUntil { nextUpdate -> nextUpdate.status == DESTROYED }
-                .flatMapCompletable { nextUpdate ->
-
-                    if (nextUpdate.status == FAILED) {
-                        Completable.error(
-                            IllegalStateException(
-                                "Failed (async) to deactivate registration " +
-                                        "for account ${nextUpdate.account}!"
-                            )
+                } else if (registration.status == FAILED) {
+                    return@flatMapCompletable Completable
+                        .fromCallable {
+                            deactivateRegistrationOfAccount(registration)
+                        }.andThen(
+                            Completable.fromCallable { destroyAccount(registration) }
                         )
-
-                    } else {
-                        Completable.complete()
-                    }
                 }
-                .andThen(Completable.fromCallable { destroyAccount(registration) })
-        }
+
+                latestAccountRegistrationUpdates
+                    .startWith(Single.just(registration.copy(
+                        intent = DEACTIVATE,
+                        status = REQUESTED
+                    )))
+                    .doOnSubscribe {
+                        deactivateRegistrationOfAccount(registration)
+                    }
+                    .filter { nextUpdate ->
+                        nextUpdate.registerId == registration.registerId &&
+                                nextUpdate.intent == DEACTIVATE
+                    }
+                    .takeUntil { nextUpdate -> nextUpdate.status == DESTROYED }
+                    .flatMapCompletable { nextUpdate ->
+
+                        if (nextUpdate.status == FAILED) {
+                            Completable.error(
+                                IllegalStateException(
+                                    "Failed (async) to deactivate registration " +
+                                            "for account ${nextUpdate.account}!"
+                                )
+                            )
+
+                        } else {
+                            Completable.complete()
+                        }
+                    }
+                    .andThen(Completable.fromCallable { destroyAccount(registration) })
+            }
     }
 
     private fun handleExistingUnregistration(

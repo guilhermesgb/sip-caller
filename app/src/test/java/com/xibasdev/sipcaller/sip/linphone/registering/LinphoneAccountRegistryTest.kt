@@ -3,12 +3,13 @@ package com.xibasdev.sipcaller.sip.linphone.registering
 import com.elvishew.xlog.Logger
 import com.elvishew.xlog.XLog
 import com.xibasdev.sipcaller.sip.linphone.LinphoneSipEngine
+import com.xibasdev.sipcaller.sip.linphone.calling.details.LinphoneCallDetailsObserver
+import com.xibasdev.sipcaller.sip.linphone.calling.state.LinphoneCallStateManager
 import com.xibasdev.sipcaller.sip.linphone.context.FakeLinphoneContext
 import com.xibasdev.sipcaller.sip.linphone.history.LinphoneCallHistoryObserver
 import com.xibasdev.sipcaller.sip.linphone.identity.LinphoneIdentityResolver
 import com.xibasdev.sipcaller.sip.linphone.processing.LinphoneProcessingEngine
 import com.xibasdev.sipcaller.sip.processing.ProcessingEngineApi
-import com.xibasdev.sipcaller.sip.protocol.ProtocolInfo
 import com.xibasdev.sipcaller.sip.registering.AccountRegistryApi
 import com.xibasdev.sipcaller.sip.registering.NoAccountRegistered
 import com.xibasdev.sipcaller.sip.registering.RegisterAccountFailed
@@ -18,23 +19,10 @@ import com.xibasdev.sipcaller.sip.registering.RegistryOffline
 import com.xibasdev.sipcaller.sip.registering.UnregisterAccountFailed
 import com.xibasdev.sipcaller.sip.registering.UnregisteredAccount
 import com.xibasdev.sipcaller.sip.registering.UnregisteringAccount
-import com.xibasdev.sipcaller.sip.registering.account.address.AccountDomainAddress
+import com.xibasdev.sipcaller.test.Account.createFirstTestRegistration
+import com.xibasdev.sipcaller.test.Account.createSecondTestRegistration
 import com.xibasdev.sipcaller.test.AccountRegistryFixtures.ACCOUNT_1
 import com.xibasdev.sipcaller.test.AccountRegistryFixtures.ACCOUNT_2
-import com.xibasdev.sipcaller.test.AccountRegistryFixtures.DISPLAY_NAME_1
-import com.xibasdev.sipcaller.test.AccountRegistryFixtures.DISPLAY_NAME_2
-import com.xibasdev.sipcaller.test.AccountRegistryFixtures.DOMAIN_1
-import com.xibasdev.sipcaller.test.AccountRegistryFixtures.DOMAIN_2
-import com.xibasdev.sipcaller.test.AccountRegistryFixtures.EXPIRATION_MS_1
-import com.xibasdev.sipcaller.test.AccountRegistryFixtures.EXPIRATION_MS_2
-import com.xibasdev.sipcaller.test.AccountRegistryFixtures.PASSWORD_1
-import com.xibasdev.sipcaller.test.AccountRegistryFixtures.PASSWORD_2
-import com.xibasdev.sipcaller.test.AccountRegistryFixtures.PORT_1
-import com.xibasdev.sipcaller.test.AccountRegistryFixtures.PORT_2
-import com.xibasdev.sipcaller.test.AccountRegistryFixtures.PROTOCOL_1
-import com.xibasdev.sipcaller.test.AccountRegistryFixtures.PROTOCOL_2
-import com.xibasdev.sipcaller.test.AccountRegistryFixtures.USERNAME_1
-import com.xibasdev.sipcaller.test.AccountRegistryFixtures.USERNAME_2
 import com.xibasdev.sipcaller.test.Completable.prepareInForeground
 import com.xibasdev.sipcaller.test.Completable.simulateAfterDelay
 import com.xibasdev.sipcaller.test.Observable.prepareInForeground
@@ -68,18 +56,29 @@ class LinphoneAccountRegistryTest {
         logger = XLog.tag("LinphoneAccountRegistryTest").build()
         clock = Clock.fixed(Instant.now(), ZoneId.systemDefault())
 
-        linphoneContext = FakeLinphoneContext()
+        linphoneContext = FakeLinphoneContext(TEST_SCHEDULER)
 
-        val processingEngine = LinphoneProcessingEngine(linphoneContext, logger)
-        val callHistoryObserver = LinphoneCallHistoryObserver(linphoneContext, logger, clock)
-        val accountRegistry = LinphoneAccountRegistry(linphoneContext, logger)
-        val identityResolver = LinphoneIdentityResolver(linphoneContext, accountRegistry, logger)
-
+        val processingEngine = LinphoneProcessingEngine(
+            linphoneContext, logger
+        )
+        val accountRegistry = LinphoneAccountRegistry(
+            TEST_SCHEDULER, linphoneContext, logger
+        )
+        val identityResolver = LinphoneIdentityResolver(
+            TEST_SCHEDULER, linphoneContext, accountRegistry, logger
+        )
+        val callHistoryObserver = LinphoneCallHistoryObserver(
+            linphoneContext, identityResolver, logger, clock
+        )
+        val callDetailsObserver = LinphoneCallDetailsObserver(
+            linphoneContext, callHistoryObserver, logger, clock
+        )
+        val callStateManager = LinphoneCallStateManager(
+            TEST_SCHEDULER, linphoneContext, logger
+        )
         val sipEngine = LinphoneSipEngine(
-            processingEngine,
-            callHistoryObserver,
-            accountRegistry,
-            identityResolver
+            processingEngine, accountRegistry, identityResolver,
+            callHistoryObserver, callDetailsObserver, callStateManager
         )
 
         this.processingEngine = sipEngine
@@ -135,20 +134,7 @@ class LinphoneAccountRegistryTest {
         val observable = accountRegistry.observeRegistrations()
             .prepareInForeground()
 
-        val completable = accountRegistry
-            .createRegistration(
-                displayName = DISPLAY_NAME_1,
-                username = USERNAME_1,
-                password = PASSWORD_1,
-                address = AccountDomainAddress(
-                    protocol = ProtocolInfo(
-                        type = PROTOCOL_1,
-                        port = PORT_1
-                    ),
-                    domain = DOMAIN_1
-                ),
-                expirationMs = EXPIRATION_MS_1
-            )
+        val completable = accountRegistry.createFirstTestRegistration()
             .prepareInForeground()
 
         Observable.interval(250, MILLISECONDS, TEST_SCHEDULER)
@@ -173,19 +159,7 @@ class LinphoneAccountRegistryTest {
             .prepareInForeground()
 
         val completable = processingEngine.startEngine()
-            .andThen(accountRegistry.createRegistration(
-                displayName = DISPLAY_NAME_1,
-                username = USERNAME_1,
-                password = PASSWORD_1,
-                address = AccountDomainAddress(
-                    protocol = ProtocolInfo(
-                        type = PROTOCOL_1,
-                        port = PORT_1
-                    ),
-                    domain = DOMAIN_1
-                ),
-                expirationMs = EXPIRATION_MS_1
-            ))
+            .andThen(accountRegistry.createFirstTestRegistration())
             .prepareInForeground()
 
         Observable.interval(250, MILLISECONDS, TEST_SCHEDULER)
@@ -214,19 +188,7 @@ class LinphoneAccountRegistryTest {
             .prepareInForeground()
 
         val completable = accountRegistry
-            .createRegistration(
-                displayName = DISPLAY_NAME_1,
-                username = USERNAME_1,
-                password = PASSWORD_1,
-                address = AccountDomainAddress(
-                    protocol = ProtocolInfo(
-                        type = PROTOCOL_1,
-                        port = PORT_1
-                    ),
-                    domain = DOMAIN_1
-                ),
-                expirationMs = EXPIRATION_MS_1
-            )
+            .createFirstTestRegistration()
             .prepareInForeground()
 
         processingEngine.startEngine()
@@ -259,19 +221,7 @@ class LinphoneAccountRegistryTest {
             .prepareInForeground()
 
         val completable1 = processingEngine.startEngine()
-            .andThen(accountRegistry.createRegistration(
-                displayName = DISPLAY_NAME_1,
-                username = USERNAME_1,
-                password = PASSWORD_1,
-                address = AccountDomainAddress(
-                    protocol = ProtocolInfo(
-                        type = PROTOCOL_1,
-                        port = PORT_1
-                    ),
-                    domain = DOMAIN_1
-                ),
-                expirationMs = EXPIRATION_MS_1
-            ))
+            .andThen(accountRegistry.createFirstTestRegistration())
             .prepareInForeground()
 
         Observable.interval(250, MILLISECONDS, TEST_SCHEDULER)
@@ -281,20 +231,7 @@ class LinphoneAccountRegistryTest {
             }
             .prepareInForeground()
 
-        val completable2 = accountRegistry
-            .createRegistration(
-                displayName = DISPLAY_NAME_1,
-                username = USERNAME_1,
-                password = PASSWORD_1,
-                address = AccountDomainAddress(
-                    protocol = ProtocolInfo(
-                        type = PROTOCOL_1,
-                        port = PORT_1
-                    ),
-                    domain = DOMAIN_1
-                ),
-                expirationMs = EXPIRATION_MS_1
-            )
+        val completable2 = accountRegistry.createFirstTestRegistration()
             .simulateAfterDelay(1, SECONDS)
             .prepareInForeground()
 
@@ -318,19 +255,7 @@ class LinphoneAccountRegistryTest {
             .prepareInForeground()
 
         val completable = processingEngine.startEngine()
-            .andThen(accountRegistry.createRegistration(
-                displayName = DISPLAY_NAME_1,
-                username = USERNAME_1,
-                password = PASSWORD_1,
-                address = AccountDomainAddress(
-                    protocol = ProtocolInfo(
-                        type = PROTOCOL_1,
-                        port = PORT_1
-                    ),
-                    domain = DOMAIN_1
-                ),
-                expirationMs = EXPIRATION_MS_1
-            ))
+            .andThen(accountRegistry.createFirstTestRegistration())
             .andThen(accountRegistry.destroyRegistration())
             .prepareInForeground()
 
@@ -363,19 +288,7 @@ class LinphoneAccountRegistryTest {
             .prepareInForeground()
 
         val completable = processingEngine.startEngine()
-            .andThen(accountRegistry.createRegistration(
-                displayName = DISPLAY_NAME_1,
-                username = USERNAME_1,
-                password = PASSWORD_1,
-                address = AccountDomainAddress(
-                    protocol = ProtocolInfo(
-                        type = PROTOCOL_1,
-                        port = PORT_1
-                    ),
-                    domain = DOMAIN_1
-                ),
-                expirationMs = EXPIRATION_MS_1
-            ))
+            .andThen(accountRegistry.createFirstTestRegistration())
             .andThen(accountRegistry.destroyRegistration())
             .andThen(accountRegistry.destroyRegistration())
             .prepareInForeground()
@@ -459,20 +372,7 @@ class LinphoneAccountRegistryTest {
         val observable = accountRegistry.observeRegistrations()
             .prepareInForeground()
 
-        val completable = accountRegistry
-            .createRegistration(
-                displayName = DISPLAY_NAME_1,
-                username = USERNAME_1,
-                password = PASSWORD_1,
-                address = AccountDomainAddress(
-                    protocol = ProtocolInfo(
-                        type = PROTOCOL_1,
-                        port = PORT_1
-                    ),
-                    domain = DOMAIN_1
-                ),
-                expirationMs = EXPIRATION_MS_1
-            )
+        val completable = accountRegistry.createFirstTestRegistration()
             .andThen(accountRegistry.destroyRegistration())
             .prepareInForeground()
 
@@ -508,33 +408,8 @@ class LinphoneAccountRegistryTest {
         val observable = accountRegistry.observeRegistrations()
             .prepareInForeground()
 
-        val completable = accountRegistry
-            .createRegistration(
-                displayName = DISPLAY_NAME_1,
-                username = USERNAME_1,
-                password = PASSWORD_1,
-                address = AccountDomainAddress(
-                    protocol = ProtocolInfo(
-                        type = PROTOCOL_1,
-                        port = PORT_1
-                    ),
-                    domain = DOMAIN_1
-                ),
-                expirationMs = EXPIRATION_MS_1
-            )
-            .andThen(accountRegistry.createRegistration(
-                displayName = DISPLAY_NAME_2,
-                username = USERNAME_2,
-                password = PASSWORD_2,
-                address = AccountDomainAddress(
-                    protocol = ProtocolInfo(
-                        type = PROTOCOL_2,
-                        port = PORT_2
-                    ),
-                    domain = DOMAIN_2
-                ),
-                expirationMs = EXPIRATION_MS_2
-            ))
+        val completable = accountRegistry.createFirstTestRegistration()
+            .andThen(accountRegistry.createSecondTestRegistration())
             .prepareInForeground()
 
         processingEngine.startEngine()
@@ -572,32 +447,8 @@ class LinphoneAccountRegistryTest {
             .prepareInForeground()
 
         val completable = processingEngine.startEngine()
-            .andThen(accountRegistry.createRegistration(
-                displayName = DISPLAY_NAME_1,
-                username = USERNAME_1,
-                password = PASSWORD_1,
-                address = AccountDomainAddress(
-                    protocol = ProtocolInfo(
-                        type = PROTOCOL_1,
-                        port = PORT_1
-                    ),
-                    domain = DOMAIN_1
-                ),
-                expirationMs = EXPIRATION_MS_1
-            ))
-            .andThen(accountRegistry.createRegistration(
-                displayName = DISPLAY_NAME_2,
-                username = USERNAME_2,
-                password = PASSWORD_2,
-                address = AccountDomainAddress(
-                    protocol = ProtocolInfo(
-                        type = PROTOCOL_2,
-                        port = PORT_2
-                    ),
-                    domain = DOMAIN_2
-                ),
-                expirationMs = EXPIRATION_MS_2
-            ))
+            .andThen(accountRegistry.createFirstTestRegistration())
+            .andThen(accountRegistry.createSecondTestRegistration())
             .prepareInForeground()
 
         Observable.interval(250, MILLISECONDS, TEST_SCHEDULER)
@@ -631,32 +482,8 @@ class LinphoneAccountRegistryTest {
             .prepareInForeground()
 
         val completable = processingEngine.startEngine()
-            .andThen(accountRegistry.createRegistration(
-                displayName = DISPLAY_NAME_1,
-                username = USERNAME_1,
-                password = PASSWORD_1,
-                address = AccountDomainAddress(
-                    protocol = ProtocolInfo(
-                        type = PROTOCOL_1,
-                        port = PORT_1
-                    ),
-                    domain = DOMAIN_1
-                ),
-                expirationMs = EXPIRATION_MS_1
-            ))
-            .andThen(accountRegistry.createRegistration(
-                displayName = DISPLAY_NAME_2,
-                username = USERNAME_2,
-                password = PASSWORD_2,
-                address = AccountDomainAddress(
-                    protocol = ProtocolInfo(
-                        type = PROTOCOL_2,
-                        port = PORT_2
-                    ),
-                    domain = DOMAIN_2
-                ),
-                expirationMs = EXPIRATION_MS_2
-            ))
+            .andThen(accountRegistry.createFirstTestRegistration())
+            .andThen(accountRegistry.createSecondTestRegistration())
             .andThen(accountRegistry.destroyRegistration())
             .prepareInForeground()
 
@@ -696,19 +523,7 @@ class LinphoneAccountRegistryTest {
             .prepareInForeground()
 
         val completable = processingEngine.startEngine()
-            .andThen(accountRegistry.createRegistration(
-                displayName = DISPLAY_NAME_1,
-                username = USERNAME_1,
-                password = PASSWORD_1,
-                address = AccountDomainAddress(
-                    protocol = ProtocolInfo(
-                        type = PROTOCOL_1,
-                        port = PORT_1
-                    ),
-                    domain = DOMAIN_1
-                ),
-                expirationMs = EXPIRATION_MS_1
-            ))
+            .andThen(accountRegistry.createFirstTestRegistration())
             .prepareInForeground()
 
         Observable.interval(250, MILLISECONDS, TEST_SCHEDULER)
@@ -738,19 +553,7 @@ class LinphoneAccountRegistryTest {
             .prepareInForeground()
 
         val completable = processingEngine.startEngine()
-            .andThen(accountRegistry.createRegistration(
-                displayName = DISPLAY_NAME_1,
-                username = USERNAME_1,
-                password = PASSWORD_1,
-                address = AccountDomainAddress(
-                    protocol = ProtocolInfo(
-                        type = PROTOCOL_1,
-                        port = PORT_1
-                    ),
-                    domain = DOMAIN_1
-                ),
-                expirationMs = EXPIRATION_MS_1
-            ))
+            .andThen(accountRegistry.createFirstTestRegistration())
             .prepareInForeground()
 
         Observable.interval(250, MILLISECONDS, TEST_SCHEDULER)
@@ -786,19 +589,7 @@ class LinphoneAccountRegistryTest {
             .prepareInForeground()
 
         val completable = processingEngine.startEngine()
-            .andThen(accountRegistry.createRegistration(
-                displayName = DISPLAY_NAME_1,
-                username = USERNAME_1,
-                password = PASSWORD_1,
-                address = AccountDomainAddress(
-                    protocol = ProtocolInfo(
-                        type = PROTOCOL_1,
-                        port = PORT_1
-                    ),
-                    domain = DOMAIN_1
-                ),
-                expirationMs = EXPIRATION_MS_1
-            ))
+            .andThen(accountRegistry.createFirstTestRegistration())
             .prepareInForeground()
 
         Observable.interval(250, MILLISECONDS, TEST_SCHEDULER)
@@ -829,19 +620,7 @@ class LinphoneAccountRegistryTest {
             .prepareInForeground()
 
         val completable = processingEngine.startEngine()
-            .andThen(accountRegistry.createRegistration(
-                displayName = DISPLAY_NAME_1,
-                username = USERNAME_1,
-                password = PASSWORD_1,
-                address = AccountDomainAddress(
-                    protocol = ProtocolInfo(
-                        type = PROTOCOL_1,
-                        port = PORT_1
-                    ),
-                    domain = DOMAIN_1
-                ),
-                expirationMs = EXPIRATION_MS_1
-            ))
+            .andThen(accountRegistry.createFirstTestRegistration())
             .andThen(accountRegistry.destroyRegistration())
             .prepareInForeground()
 
@@ -874,19 +653,7 @@ class LinphoneAccountRegistryTest {
             .prepareInForeground()
 
         val completable = processingEngine.startEngine()
-            .andThen(accountRegistry.createRegistration(
-                displayName = DISPLAY_NAME_1,
-                username = USERNAME_1,
-                password = PASSWORD_1,
-                address = AccountDomainAddress(
-                    protocol = ProtocolInfo(
-                        type = PROTOCOL_1,
-                        port = PORT_1
-                    ),
-                    domain = DOMAIN_1
-                ),
-                expirationMs = EXPIRATION_MS_1
-            ))
+            .andThen(accountRegistry.createFirstTestRegistration())
             .andThen(accountRegistry.destroyRegistration())
             .prepareInForeground()
 
@@ -925,19 +692,7 @@ class LinphoneAccountRegistryTest {
             .prepareInForeground()
 
         val completable = processingEngine.startEngine()
-            .andThen(accountRegistry.createRegistration(
-                displayName = DISPLAY_NAME_1,
-                username = USERNAME_1,
-                password = PASSWORD_1,
-                address = AccountDomainAddress(
-                    protocol = ProtocolInfo(
-                        type = PROTOCOL_1,
-                        port = PORT_1
-                    ),
-                    domain = DOMAIN_1
-                ),
-                expirationMs = EXPIRATION_MS_1
-            ))
+            .andThen(accountRegistry.createFirstTestRegistration())
             .andThen(accountRegistry.destroyRegistration())
             .prepareInForeground()
 
@@ -973,19 +728,7 @@ class LinphoneAccountRegistryTest {
             .prepareInForeground()
 
         val completable = processingEngine.startEngine()
-            .andThen(accountRegistry.createRegistration(
-                displayName = DISPLAY_NAME_1,
-                username = USERNAME_1,
-                password = PASSWORD_1,
-                address = AccountDomainAddress(
-                    protocol = ProtocolInfo(
-                        type = PROTOCOL_1,
-                        port = PORT_1
-                    ),
-                    domain = DOMAIN_1
-                ),
-                expirationMs = EXPIRATION_MS_1
-            ))
+            .andThen(accountRegistry.createFirstTestRegistration())
             .andThen(accountRegistry.destroyRegistration())
             .prepareInForeground()
 

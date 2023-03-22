@@ -1,10 +1,13 @@
 package com.xibasdev.sipcaller.sip.linphone.context
 
-import com.xibasdev.sipcaller.sip.SipCallId
+import com.xibasdev.sipcaller.sip.calling.CallId
+import com.xibasdev.sipcaller.sip.calling.features.CallFeatures
 import com.xibasdev.sipcaller.sip.protocol.ProtocolInfo
 import com.xibasdev.sipcaller.sip.registering.account.AccountInfo
 import com.xibasdev.sipcaller.sip.registering.account.AccountPassword
-import com.xibasdev.sipcaller.test.IdentityResolverFixtures.PRIMARY_CONTACT_IP_ADDRESS
+import com.xibasdev.sipcaller.test.IdentityResolverFixtures.LOCAL_PROTOCOL_1
+import com.xibasdev.sipcaller.test.IdentityResolverFixtures.PRIMARY_CONTACT_IP_ADDRESS_1
+import io.reactivex.rxjava3.core.Scheduler
 import java.util.LinkedList
 import java.util.Queue
 import java.util.TreeMap
@@ -42,21 +45,26 @@ private typealias LinphoneGlobalStateChange = Pair<GlobalState, String>
 private const val LINPHONE_CORE_STARTED = 0
 private const val LINPHONE_CORE_START_FAILED = -1
 
-class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
+class FakeLinphoneContext(
+    scheduler: Scheduler
+) : LinphoneContextApi(scheduler), FakeLinphoneContextApi {
 
     private val coreListeners = TreeMap<Int, FakeCoreListenerStatus>()
     private var currentGlobalState = Off
+    private var isCurrentlyHandlingCall = false
     private var currentIsNetworkReachable = false
     private var currentPrimaryContactIpAddress: String? = null
     private var currentPrimaryContactProtocolInfo: ProtocolInfo? = null
 
     init {
-        val globalStateChangeListener = createGlobalStateChangeListener { globalState, _, _ ->
+        val globalStateChangeListener = createGlobalStateChangeListener { globalStateChange, _, _ ->
 
-            currentGlobalState = globalState
+            currentGlobalState = globalStateChange
         }
 
-        enableCoreListener(globalStateChangeListener)
+        scheduler.scheduleDirect {
+            enableCoreListener(globalStateChangeListener)
+        }
     }
 
     private val enqueuedGlobalStateChanges: Queue<LinphoneGlobalStateChange> = LinkedList()
@@ -85,12 +93,12 @@ class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
     }
 
     override fun createGlobalStateChangeListener(
-        callback: (globalState: GlobalState, coreListenerId: Int, errorReason: String) -> Unit
+        callback: (globalState: GlobalState, errorReason: String, coreListenerId: Int) -> Unit
     ): Int {
 
         val fakeCoreListener = object : FakeCoreListener() {
             override fun onGlobalStateChange(globalState: GlobalState, errorReason: String) {
-                callback(globalState, this.hashCode(), errorReason)
+                callback(globalState, errorReason, this.hashCode())
             }
         }
 
@@ -106,6 +114,24 @@ class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
         val fakeCoreListener = object : FakeCoreListener() {
             override fun onCallStateChange(callStateChange: LinphoneCallStateChange) {
                 callback(callStateChange, this.hashCode())
+            }
+        }
+
+        val coreListenerId = fakeCoreListener.hashCode()
+        coreListeners[coreListenerId] = Pair(fakeCoreListener, false)
+        return coreListenerId
+    }
+
+    override fun createCallStatsChangeListener(
+        callback: (
+            callStatsChange: LinphoneCallStatsChange,
+            coreListenerId: Int
+        ) -> Unit
+    ): Int {
+
+        val fakeCoreListener = object : FakeCoreListener() {
+            override fun onCallStatsChange(callStatsChange: LinphoneCallStatsChange) {
+                callback(callStatsChange, this.hashCode())
             }
         }
 
@@ -255,6 +281,34 @@ class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
         return true
     }
 
+    override fun sendCallInvitation(account: AccountInfo): Boolean {
+        TODO("Not yet implemented")
+    }
+
+    override fun cancelCallInvitation(callId: CallId): Boolean {
+        TODO("Not yet implemented")
+    }
+
+    override fun acceptCallInvitation(callId: CallId): Boolean {
+        TODO("Not yet implemented")
+    }
+
+    override fun declineCallInvitation(callId: CallId): Boolean {
+        TODO("Not yet implemented")
+    }
+
+    override fun terminateCallSession(callId: CallId): Boolean {
+        TODO("Not yet implemented")
+    }
+
+    override fun isCurrentlyHandlingCall(): Boolean {
+        return isCurrentlyHandlingCall
+    }
+
+    override fun enableOrDisableCallFeatures(callId: CallId, features: CallFeatures): Boolean {
+        TODO("Not yet implemented")
+    }
+
     override fun startLinphoneCore(): Int {
         if (failSynchronouslyOnLinphoneCoreStart) {
             return LINPHONE_CORE_START_FAILED
@@ -265,7 +319,8 @@ class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
             Shutdown,
             Off -> {
                 currentIsNetworkReachable = true
-                currentPrimaryContactIpAddress = PRIMARY_CONTACT_IP_ADDRESS
+                currentPrimaryContactIpAddress = PRIMARY_CONTACT_IP_ADDRESS_1.value
+                currentPrimaryContactProtocolInfo = LOCAL_PROTOCOL_1
 
                 enqueueGlobalStateChange(Startup)
                 enqueueGlobalStateChange(Configuring)
@@ -377,9 +432,7 @@ class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
         enqueueCallStateChange(LinphoneCallStateChange(
             callId = getNextSimulatedCallId(),
             direction = Incoming,
-            state = IncomingReceived,
-            status = Success,
-            errorReason = ""
+            state = IncomingReceived
         ))
     }
 
@@ -388,15 +441,13 @@ class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
             callId = callId,
             direction = Incoming,
             state = End,
-            status = Declined,
-            errorReason = ""
+            status = Declined
         ))
         enqueueCallStateChange(LinphoneCallStateChange(
             callId = callId,
             direction = Incoming,
             state = Released,
-            status = Declined,
-            errorReason = ""
+            status = Declined
         ))
     }
 
@@ -404,16 +455,12 @@ class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
         enqueueCallStateChange(LinphoneCallStateChange(
             callId = callId,
             direction = Incoming,
-            state = Connected,
-            status = Success,
-            errorReason = ""
+            state = Connected
         ))
         enqueueCallStateChange(LinphoneCallStateChange(
             callId = callId,
             direction = Incoming,
-            state = StreamsRunning,
-            status = Success,
-            errorReason = ""
+            state = StreamsRunning
         ))
     }
 
@@ -422,15 +469,13 @@ class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
             callId = callId,
             direction = Incoming,
             state = End,
-            status = Missed,
-            errorReason = ""
+            status = Missed
         ))
         enqueueCallStateChange(LinphoneCallStateChange(
             callId = callId,
             direction = Incoming,
             state = Released,
-            status = Missed,
-            errorReason = ""
+            status = Missed
         ))
     }
 
@@ -439,15 +484,13 @@ class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
             callId = callId,
             direction = Incoming,
             state = End,
-            status = AcceptedElsewhere,
-            errorReason = ""
+            status = AcceptedElsewhere
         ))
         enqueueCallStateChange(LinphoneCallStateChange(
             callId = callId,
             direction = Incoming,
             state = Released,
-            status = AcceptedElsewhere,
-            errorReason = ""
+            status = AcceptedElsewhere
         ))
     }
 
@@ -456,7 +499,7 @@ class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
     }
 
     override fun simulateIncomingCallCanceledByCallee(callId: String) {
-        setCallFinishedByLocalParty(SipCallId(callId))
+        setCallFinishedByLocalParty(CallId(callId))
         simulateIncomingCallCanceled(callId)
     }
 
@@ -465,15 +508,13 @@ class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
             callId = callId,
             direction = Incoming,
             state = End,
-            status = Aborted,
-            errorReason = ""
+            status = Aborted
         ))
         enqueueCallStateChange(LinphoneCallStateChange(
             callId = callId,
             direction = Incoming,
             state = Released,
-            status = Aborted,
-            errorReason = ""
+            status = Aborted
         ))
     }
 
@@ -483,15 +524,13 @@ class FakeLinphoneContext : LinphoneContextApi(), FakeLinphoneContextApi {
             callId = callId,
             direction = Outgoing,
             state = OutgoingInit,
-            status = Success,
-            errorReason = ""
+            status = Success
         ))
         enqueueCallStateChange(LinphoneCallStateChange(
             callId = callId,
             direction = Outgoing,
             state = OutgoingProgress,
-            status = Success,
-            errorReason = ""
+            status = Success
         ))
     }
 

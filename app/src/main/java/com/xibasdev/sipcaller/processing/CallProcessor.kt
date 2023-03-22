@@ -8,12 +8,11 @@ import androidx.work.OneTimeWorkRequest
 import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkManager
 import com.xibasdev.sipcaller.app.initializers.WorkManagerInitializerApi
-import com.xibasdev.sipcaller.dto.processing.CallProcessing
-import com.xibasdev.sipcaller.dto.processing.CallProcessingFailed
-import com.xibasdev.sipcaller.dto.processing.CallProcessingStarted
-import com.xibasdev.sipcaller.dto.processing.CallProcessingStopped
-import com.xibasdev.sipcaller.dto.processing.CallProcessingSuspended
-import com.xibasdev.sipcaller.processing.notifier.CallStateNotifierApi
+import com.xibasdev.sipcaller.processing.dto.CallProcessing
+import com.xibasdev.sipcaller.processing.dto.CallProcessingFailed
+import com.xibasdev.sipcaller.processing.dto.CallProcessingStarted
+import com.xibasdev.sipcaller.processing.dto.CallProcessingStopped
+import com.xibasdev.sipcaller.processing.dto.CallProcessingSuspended
 import com.xibasdev.sipcaller.processing.util.InfiniteWorkFailed
 import com.xibasdev.sipcaller.processing.util.InfiniteWorkMissing
 import com.xibasdev.sipcaller.processing.util.InfiniteWorkOngoing
@@ -32,16 +31,23 @@ import javax.inject.Named
 private const val TAG = "CallProcessor"
 private const val CALL_PROCESSING_MONITORING_RATE_MS = 250L
 
+/**
+ * Public API that serves as a contract for components interested in handling background call
+ *   processing: starting or stopping it as well as reacting to processing state changes.
+ *
+ * To be used by app components scoped to some lifecycle context, such as the
+ *   [com.xibasdev.sipcaller.app.SipCallerAppLifecycleObserver] that is scoped to the whole app process.
+ */
 class CallProcessor @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val callStateNotifier: CallStateNotifierApi,
+    private val processingStateNotifier: ProcessingStateNotifier,
     @Named("CallProcessingUpdates") private val processingUpdates: BehaviorSubject<CallProcessing>,
     @Named("CallProcessingUniqueWorkName") private val callProcessingWorkName: String,
     @Named("CallProcessing") private val startCallProcessingWorkRequest: OneTimeWorkRequest,
     @Named("CallProcessingChecksUniqueWorkName") private val processingChecksWorkName: String,
     @Named("CallProcessingChecks") private val processingChecksWorkRequest: PeriodicWorkRequest,
     workManagerInitializer: WorkManagerInitializerApi
-) : CallProcessorApi {
+) {
 
     private val workManager by lazy {
         WorkManager.getInstance(context)
@@ -55,7 +61,32 @@ class CallProcessor @Inject constructor(
         processingUpdates.monitorProcessingStateUpdates()
     }
 
-    override fun startProcessing(): Completable {
+    /**
+     * Start processing calls in the background. Completes if processing started successfully, or if
+     *   processing was scheduled by the system to be started sometime in the future, returning an
+     *   error signal otherwise (e.g. if underlying worker is not allowed to start).
+     *
+     * When processing is started successfully, the app will be able to place outgoing calls to
+     *   remote parties as well as receive incoming calls from remote parties.
+     *
+     * While processing is just scheduled, the app will not yet be able to place outgoing calls to
+     *   remote parties as well as receive incoming calls from remote parties. Processing may start
+     *   in the scheduled state instead of being actively running right away, under the system's own
+     *   discretion. Processing will revert back to the scheduled state while the device has no
+     *   active network connection available.
+     *
+     * Using the [observeProcessing] method you may observe a future transition from the
+     *   [com.xibasdev.sipcaller.processing.dto.CallProcessingSuspended] state into the
+     *   [com.xibasdev.sipcaller.processing.dto.CallProcessingStarted] state when processing does
+     *   indeed start executing in the background, as well as a transition from
+     *   [com.xibasdev.sipcaller.processing.dto.CallProcessingStarted] back to
+     *   [com.xibasdev.sipcaller.processing.dto.CallProcessingSuspended] if the call processing is
+     *   once again suspended by the system e.g. while there's no active network connection
+     *   available.
+     *
+     * Processing may be stopped with [stopProcessing].
+     */
+    fun startProcessing(): Completable {
         return Completable.create { emitter ->
 
             with (workManager) {
@@ -71,19 +102,21 @@ class CallProcessor @Inject constructor(
                     when (val progress = getInfiniteWorkProgress(callProcessingWorkName)) {
                         InfiniteWorkMissing -> {
                             val error = IllegalStateException("Work not started: not found.")
-                            callStateNotifier.notifyProcessingStartFailed(error)
+                            processingStateNotifier.notifyProcessingStartFailed(error)
                             processingUpdates.onNext(CallProcessingFailed(error))
                             emitter.onError(error)
 
-                            Log.e(TAG, "Calls processing failed to start: work not found!", error)
+                            Log.e(TAG, "Calls processing failed to start: " +
+                                    "work not found!", error)
                         }
                         is InfiniteWorkFailed -> {
                             val error = IllegalStateException("Work not started: finished.")
-                            callStateNotifier.notifyProcessingStartFailed(error)
+                            processingStateNotifier.notifyProcessingStartFailed(error)
                             processingUpdates.onNext(CallProcessingFailed(error))
                             emitter.onError(error)
 
-                            Log.e(TAG, "Calls processing failed: in state ${progress.workState}!")
+                            Log.e(TAG, "Calls processing failed: " +
+                                    "in state ${progress.workState}!")
                         }
                         is InfiniteWorkSuspended -> {
                             processingUpdates.onNext(CallProcessingSuspended)
@@ -99,7 +132,7 @@ class CallProcessor @Inject constructor(
                         }
                     }
                 } catch (error: Throwable) {
-                    callStateNotifier.notifyProcessingStartFailed(error)
+                    processingStateNotifier.notifyProcessingStartFailed(error)
                     processingUpdates.onNext(CallProcessingFailed(error))
                     emitter.onError(error)
 
@@ -109,11 +142,45 @@ class CallProcessor @Inject constructor(
         }
     }
 
-    override fun observeProcessing(): Observable<CallProcessing> {
+    /**
+     * Observe calls processing state over time.
+     *
+     * Emits [com.xibasdev.sipcaller.processing.dto.CallProcessingStarted] when processing is
+     *   started successfully and [com.xibasdev.sipcaller.processing.dto.CallProcessingStopped] when
+     *   processing is successfully stopped.
+     *
+     * It also emits [com.xibasdev.sipcaller.processing.dto.CallProcessingFailed] if a failure to
+     *   start/stop processing occurs.
+     *
+     * While call processing is ongoing, it also emits
+     *   [com.xibasdev.sipcaller.processing.dto.CallProcessingFailed] if a failure is detected that
+     *   suddenly halts call processing.
+     *
+     * [com.xibasdev.sipcaller.processing.dto.CallProcessingSuspended] is emitted when the call
+     *   processing is scheduled but not currently executing. Call background processing is paused
+     *   and sent back to the scheduled state by the system while the device is currently with no
+     *   active network connection enabled.
+     *
+     * It is possible for the system to not immediately start call processing from the
+     *   [startProcessing] method e.g. if the system is under heavy load and/or the call processing
+     *   work quota is depleted (in which case some time has to pass until it refreshes again) -
+     *   under such conditions, [com.xibasdev.sipcaller.processing.dto.CallProcessingSuspended] is
+     *   also emitted signaling this.
+     */
+    fun observeProcessing(): Observable<CallProcessing> {
         return processingUpdates.distinctUntilChanged()
     }
 
-    override fun stopProcessing(): Completable {
+    /**
+     * Stop processing calls in the background. Completes if processing stopped successfully,
+     *   returning an error signal otherwise (e.g. there was no processing started to be stopped).
+     *
+     * After processing is stopped, the app will no longer be able to place outgoing calls to remote
+     *   parties as well as receive incoming calls from remote parties.
+     *
+     * Processing may be started again with [startProcessing].
+     */
+    fun stopProcessing(): Completable {
         return Completable.create { emitter ->
 
             Log.d(TAG, "Stopping calls processing...")
@@ -135,7 +202,7 @@ class CallProcessor @Inject constructor(
 
             } catch (error: Throwable) {
 
-                callStateNotifier.notifyProcessingStopFailed(error)
+                processingStateNotifier.notifyProcessingStopFailed(error)
                 processingUpdates.onNext(CallProcessingFailed(error))
                 emitter.onError(error)
 
@@ -156,7 +223,7 @@ class CallProcessor @Inject constructor(
                             if (callProcessingState == CallProcessingSuspended) {
                                 Log.d(TAG, "Monitoring suspended call processing...")
 
-                                callStateNotifier.notifyProcessingSuspended()
+                                processingStateNotifier.notifyProcessingSuspended()
                             } else {
                                 Log.d(TAG, "Monitoring ongoing call processing...")
                             }
@@ -183,7 +250,8 @@ class CallProcessor @Inject constructor(
                     val currentProcessingStatus = value
 
                     if (currentProcessingStatus != CallProcessingSuspended
-                        && currentProcessingStatus != CallProcessingStarted) {
+                        && currentProcessingStatus != CallProcessingStarted
+                    ) {
 
                         return@with currentProcessingStatus ?: CallProcessingStopped
                     }
@@ -191,14 +259,15 @@ class CallProcessor @Inject constructor(
                     Log.e(TAG, "Processing fail - work for call processing not found!")
 
                     val error = IllegalStateException("Processing work not found.")
-                    callStateNotifier.notifyProcessingFailed(error)
+                    processingStateNotifier.notifyProcessingFailed(error)
                     CallProcessingFailed(error)
                 }
                 is InfiniteWorkFailed -> {
                     val currentProcessingStatus = value
 
                     if (currentProcessingStatus != CallProcessingSuspended
-                            && currentProcessingStatus != CallProcessingStarted) {
+                            && currentProcessingStatus != CallProcessingStarted
+                    ) {
 
                         return@with currentProcessingStatus ?: CallProcessingStopped
                     }
@@ -210,7 +279,7 @@ class CallProcessor @Inject constructor(
                         "Processing not running; system reported state:" +
                                 " ${processingProgress.workState}!"
                     )
-                    callStateNotifier.notifyProcessingFailed(error)
+                    processingStateNotifier.notifyProcessingFailed(error)
                     CallProcessingFailed(error).also {
                         onNext(it)
                     }
@@ -257,7 +326,7 @@ class CallProcessor @Inject constructor(
                 Log.e(TAG, "Processing fail - work for call processing checks not found!")
 
                 val error = IllegalStateException("Processing checks work not found.")
-                callStateNotifier.notifyProcessingFailed(error)
+                processingStateNotifier.notifyProcessingFailed(error)
                 return CallProcessingFailed(error).also {
                     onNext(it)
                 }
@@ -268,7 +337,7 @@ class CallProcessor @Inject constructor(
                 val error = IllegalStateException(
                     "Processing checks not running; system reported state: ${progress.workState}!"
                 )
-                callStateNotifier.notifyProcessingFailed(error)
+                processingStateNotifier.notifyProcessingFailed(error)
                 return CallProcessingFailed(error).also {
                     onNext(it)
                 }
@@ -277,7 +346,10 @@ class CallProcessor @Inject constructor(
         }
     }
 
-    override fun clear() {
+    /**
+     * Invalidates this processor instance, cleaning up its underlying monitoring processing.
+     */
+    fun clear() {
         disposables.dispose()
     }
 }

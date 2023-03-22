@@ -29,7 +29,7 @@ class SipCallerAppModule {
     @Provides
     @Singleton
     @Named("SipEngineLogger")
-    fun provideLinphoneLogger(loggerInitializer: LoggerInitializerApi): Logger {
+    fun provideSipEngineLogger(loggerInitializer: LoggerInitializerApi): Logger {
         loggerInitializer.initializeLogger()
 
         return XLog.tag("SipEngine").build()

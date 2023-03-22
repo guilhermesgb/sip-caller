@@ -1,3 +1,8 @@
 package com.xibasdev.sipcaller.sip.history
 
-sealed interface CallInProgressUpdate : CallHistoryUpdate
+import com.xibasdev.sipcaller.sip.calling.streams.CallStreams
+
+sealed interface CallInProgressUpdate : CallHistoryUpdate {
+
+    val streams: CallStreams
+}

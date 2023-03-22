@@ -5,7 +5,7 @@ import androidx.work.ListenableWorker
 import androidx.work.OneTimeWorkRequest
 import androidx.work.WorkerParameters
 import com.xibasdev.sipcaller.app.workers.CustomWorkerFactory
-import com.xibasdev.sipcaller.dto.processing.CallProcessing
+import com.xibasdev.sipcaller.processing.dto.CallProcessing
 import io.reactivex.rxjava3.subjects.BehaviorSubject
 import javax.inject.Inject
 import javax.inject.Named

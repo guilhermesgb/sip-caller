@@ -1,6 +1,7 @@
 package com.xibasdev.sipcaller.sip.history
 
 import io.reactivex.rxjava3.core.Observable
+import java.time.OffsetDateTime
 
 interface CallHistoryObserverApi {
 
@@ -20,5 +21,5 @@ interface CallHistoryObserverApi {
      *
      *   It is up to the subscriber to filter out unneeded updates.
      */
-    fun observeCallHistory(): Observable<List<CallHistoryUpdate>>
+    fun observeCallHistory(offset: OffsetDateTime): Observable<List<CallHistoryUpdate>>
 }

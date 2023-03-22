@@ -5,7 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.work.ListenableWorker.Result.Failure
 import androidx.work.testing.TestListenableWorkerBuilder
-import com.xibasdev.sipcaller.processing.notifier.CallStateNotifier
+import com.xibasdev.sipcaller.processing.ProcessingStateNotifier
 import com.xibasdev.sipcaller.sip.FakeSipEngine
 import com.xibasdev.sipcaller.test.Completable.prepareInBackgroundAndWaitUpToTimeout
 import com.xibasdev.sipcaller.test.Single.prepareInBackground
@@ -31,9 +31,9 @@ class CallProcessingWorkerTest {
 
         val context: Context = ApplicationProvider.getApplicationContext()
         val callProcessingWorkerFactory = CallProcessingWorkerFactory(
-            Schedulers.newThread(),
+            Schedulers.single(),
             fakeSipEngine,
-            CallStateNotifier(context)
+            ProcessingStateNotifier(context)
         )
 
         callProcessingWorker = TestListenableWorkerBuilder<CallProcessingWorker>(context)

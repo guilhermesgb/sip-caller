@@ -1,10 +1,12 @@
 package com.xibasdev.sipcaller.sip.linphone.context
 
-import com.xibasdev.sipcaller.sip.SipCallId
+import com.xibasdev.sipcaller.sip.calling.CallId
+import com.xibasdev.sipcaller.sip.calling.features.CallFeatures
 import com.xibasdev.sipcaller.sip.protocol.ProtocolInfo
 import com.xibasdev.sipcaller.sip.registering.account.AccountInfo
 import com.xibasdev.sipcaller.sip.registering.account.AccountPassword
 import io.reactivex.rxjava3.core.Observable
+import io.reactivex.rxjava3.core.Scheduler
 import io.reactivex.rxjava3.core.Single
 import io.reactivex.rxjava3.disposables.CompositeDisposable
 import io.reactivex.rxjava3.kotlin.addTo
@@ -14,7 +16,7 @@ import io.reactivex.rxjava3.subjects.Subject
 import java.util.TreeMap
 import org.linphone.core.GlobalState
 
-abstract class LinphoneContextApi {
+abstract class LinphoneContextApi (private val scheduler: Scheduler) {
 
     private val isStartedUpdates = BehaviorSubject.createDefault(false)
     private val stoppedDisposables = CompositeDisposable()
@@ -23,11 +25,7 @@ abstract class LinphoneContextApi {
     abstract fun getCurrentGlobalState(): GlobalState
 
     abstract fun createGlobalStateChangeListener(
-        callback: (globalState: GlobalState, coreListenerId: Int, errorReason: String) -> Unit
-    ): Int
-
-    abstract fun createCallStateChangeListener(
-        callback: (callStateChange: LinphoneCallStateChange, coreListenerId: Int) -> Unit
+        callback: (globalStateChange: GlobalState, errorReason: String, coreListenerId: Int) -> Unit
     ): Int
 
     abstract fun createAccountRegistrationStateChangeListener(
@@ -39,6 +37,14 @@ abstract class LinphoneContextApi {
 
     abstract fun createNetworkReachableListener(
         callback: (isNetworkReachable: Boolean, coreListenerId: Int) -> Unit
+    ): Int
+
+    abstract fun createCallStateChangeListener(
+        callback: (callStateChange: LinphoneCallStateChange, coreListenerId: Int) -> Unit
+    ): Int
+
+    abstract fun createCallStatsChangeListener(
+        callback: (callStatsChange: LinphoneCallStatsChange, coreListenerId: Int) -> Unit
     ): Int
 
     abstract fun enableCoreListener(coreListenerId: Int)
@@ -68,6 +74,26 @@ abstract class LinphoneContextApi {
 
     abstract fun setPrimaryContactProtocolInfo(protocolInfo: ProtocolInfo): Boolean
 
+    /**
+     * TODO allow specification of desired initial call parameters at this point
+     */
+    abstract fun sendCallInvitation(account: AccountInfo): Boolean
+
+    abstract fun cancelCallInvitation(callId: CallId): Boolean
+
+    abstract fun acceptCallInvitation(callId: CallId): Boolean
+
+    /**
+     * TODO allow specification of reason for declination of call invitation
+     */
+    abstract fun declineCallInvitation(callId: CallId): Boolean
+
+    abstract fun terminateCallSession(callId: CallId): Boolean
+
+    abstract fun isCurrentlyHandlingCall(): Boolean
+
+    abstract fun enableOrDisableCallFeatures(callId: CallId, features: CallFeatures): Boolean
+
     abstract fun startLinphoneCore(): Int
 
     fun updateLinphoneCoreStarted(isStarted: Boolean) {
@@ -89,6 +115,7 @@ abstract class LinphoneContextApi {
             .distinctUntilChanged()
             .switchMap(operations)
             .onErrorComplete()
+            .subscribeOn(scheduler)
             .subscribeBy(
                 onNext = { result ->
 
@@ -98,11 +125,11 @@ abstract class LinphoneContextApi {
             .addTo(stoppedDisposables)
     }
 
-    fun setCallFinishedByLocalParty(callId: SipCallId) {
+    internal fun setCallFinishedByLocalParty(callId: CallId) {
         wasCallFinishedByLocalParty[callId.value] = true
     }
 
-    fun wasCallFinishedByLocalParty(callId: SipCallId): Single<Boolean> {
+    fun wasCallFinishedByLocalParty(callId: CallId): Single<Boolean> {
         return Single.just(wasCallFinishedByLocalParty.getOrDefault(callId.value, false))
     }
 }

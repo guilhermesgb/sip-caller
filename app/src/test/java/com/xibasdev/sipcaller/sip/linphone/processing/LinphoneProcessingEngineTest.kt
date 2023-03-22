@@ -3,6 +3,8 @@ package com.xibasdev.sipcaller.sip.linphone.processing
 import com.elvishew.xlog.Logger
 import com.elvishew.xlog.XLog
 import com.xibasdev.sipcaller.sip.linphone.LinphoneSipEngine
+import com.xibasdev.sipcaller.sip.linphone.calling.details.LinphoneCallDetailsObserver
+import com.xibasdev.sipcaller.sip.linphone.calling.state.LinphoneCallStateManager
 import com.xibasdev.sipcaller.sip.linphone.context.FakeLinphoneContext
 import com.xibasdev.sipcaller.sip.linphone.history.LinphoneCallHistoryObserver
 import com.xibasdev.sipcaller.sip.linphone.identity.LinphoneIdentityResolver
@@ -39,18 +41,29 @@ class LinphoneProcessingEngineTest {
         logger = XLog.tag("LinphoneProcessingEngineTest").build()
         clock = Clock.fixed(Instant.now(), ZoneId.systemDefault())
 
-        linphoneContext = FakeLinphoneContext()
+        linphoneContext = FakeLinphoneContext(TEST_SCHEDULER)
 
-        val processingEngine = LinphoneProcessingEngine(linphoneContext, logger)
-        val callHistoryObserver = LinphoneCallHistoryObserver(linphoneContext, logger, clock)
-        val accountRegistry = LinphoneAccountRegistry(linphoneContext, logger)
-        val identityResolver = LinphoneIdentityResolver(linphoneContext, accountRegistry, logger)
-
+        val processingEngine = LinphoneProcessingEngine(
+            linphoneContext, logger
+        )
+        val accountRegistry = LinphoneAccountRegistry(
+            TEST_SCHEDULER, linphoneContext, logger
+        )
+        val identityResolver = LinphoneIdentityResolver(
+            TEST_SCHEDULER, linphoneContext, accountRegistry, logger
+        )
+        val callHistoryObserver = LinphoneCallHistoryObserver(
+            linphoneContext, identityResolver, logger, clock
+        )
+        val callDetailsObserver = LinphoneCallDetailsObserver(
+            linphoneContext, callHistoryObserver, logger, clock
+        )
+        val callStateManager = LinphoneCallStateManager(
+            TEST_SCHEDULER, linphoneContext, logger
+        )
         val sipEngine = LinphoneSipEngine(
-            processingEngine,
-            callHistoryObserver,
-            accountRegistry,
-            identityResolver
+            processingEngine, accountRegistry, identityResolver,
+            callHistoryObserver, callDetailsObserver, callStateManager
         )
 
         this.processingEngine = sipEngine

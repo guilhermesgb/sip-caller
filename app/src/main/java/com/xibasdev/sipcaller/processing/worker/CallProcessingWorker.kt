@@ -9,7 +9,7 @@ import androidx.work.ForegroundInfo
 import androidx.work.ListenableWorker.Result.Failure
 import androidx.work.WorkerParameters
 import androidx.work.rxjava3.RxWorker
-import com.xibasdev.sipcaller.processing.notifier.CallStateNotifierApi
+import com.xibasdev.sipcaller.processing.ProcessingStateNotifier
 import com.xibasdev.sipcaller.processing.notifier.getNotification
 import com.xibasdev.sipcaller.processing.notifier.getNotificationId
 import com.xibasdev.sipcaller.sip.SipEngineApi
@@ -30,7 +30,7 @@ class CallProcessingWorker @AssistedInject constructor(
     parameters: WorkerParameters,
     @Assisted private val scheduler: Scheduler,
     @Assisted private val sipEngine: SipEngineApi,
-    @Assisted private val callStateNotifier: CallStateNotifierApi
+    @Assisted private val processingStateNotifier: ProcessingStateNotifier
 ) : RxWorker(context, parameters) {
 
     override fun createWork(): Single<Result> {
@@ -56,7 +56,7 @@ class CallProcessingWorker @AssistedInject constructor(
                             Log.d(TAG, "Executing call processing steps.")
 
                             sipEngine.processEngineSteps()
-                                .timeout(CALL_PROCESSING_RATE_MS * 4, MILLISECONDS)
+                                .timeout(CALL_PROCESSING_RATE_MS * 4, MILLISECONDS, scheduler)
                         }
                         .mapToWorkResult()
                         .doOnSuccess { processingStepsResult ->
@@ -65,15 +65,16 @@ class CallProcessingWorker @AssistedInject constructor(
                                 Log.e(TAG, "Failed to execute call processing steps!")
 
                             } else {
-                                Log.d(TAG, "Call processing steps executed successfully.")
+                                Log.d(TAG, "Call processing successfully terminated.")
                             }
                         }
                 }
             }
+            .subscribeOn(scheduler)
     }
 
     private fun createForegroundInfo(): ForegroundInfo {
-        val notificationInfo = callStateNotifier.getNotificationInfoForProcessingStarted()
+        val notificationInfo = processingStateNotifier.getNotificationInfoForProcessingStarted()
 
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             val foregroundServiceTypes = ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA or

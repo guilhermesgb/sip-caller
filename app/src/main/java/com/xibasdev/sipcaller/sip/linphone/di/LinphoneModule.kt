@@ -2,6 +2,7 @@ package com.xibasdev.sipcaller.sip.linphone.di
 
 import android.content.Context
 import android.util.Log
+import com.elvishew.xlog.Logger
 import com.xibasdev.sipcaller.BuildConfig
 import com.xibasdev.sipcaller.R
 import com.xibasdev.sipcaller.sip.linphone.context.LinphoneContext
@@ -32,9 +33,10 @@ typealias LinphoneCore = Core
 class LinphoneModule {
 
     @Provides
+    @Singleton
     @Named("LinphoneRxScheduler")
     fun provideLinphoneDedicatedRxScheduler(): Scheduler {
-        return Schedulers.newThread()
+        return Schedulers.single()
     }
 
     @Provides
@@ -153,6 +155,13 @@ class LinphoneModule {
                     isNativeRingingEnabled = false
 
                     isEchoLimiterEnabled = false
+
+                    transports = Factory.instance().createTransports().apply {
+                        tcpPort = -1
+                        tlsPort = 0
+                        dtlsPort = 0
+                        udpPort = 0
+                    }
                 }
             }
             .doOnError { error ->
@@ -165,8 +174,13 @@ class LinphoneModule {
 
     @Provides
     @Singleton
-    fun provideLinphoneContext(linphoneCore: LinphoneCore): LinphoneContextApi {
-        return LinphoneContext(linphoneCore)
+    fun provideLinphoneContext(
+        linphoneCore: LinphoneCore,
+        @Named("LinphoneRxScheduler") scheduler: Scheduler,
+        @Named("SipEngineLogger") logger: Logger
+    ): LinphoneContextApi {
+
+        return LinphoneContext(linphoneCore, scheduler, logger)
     }
 
     @Provides

@@ -14,25 +14,29 @@ import com.xibasdev.sipcaller.sip.registering.account.address.AccountIp
 import com.xibasdev.sipcaller.sip.registering.account.address.AccountIpAddress
 import io.reactivex.rxjava3.core.Completable
 import io.reactivex.rxjava3.core.Observable
+import io.reactivex.rxjava3.core.Scheduler
 import io.reactivex.rxjava3.core.Single
 import io.reactivex.rxjava3.subjects.BehaviorSubject
 import io.reactivex.rxjava3.subjects.PublishSubject
 import javax.inject.Inject
 import javax.inject.Named
+import javax.inject.Singleton
 
+@Singleton
 class LinphoneIdentityResolver @Inject constructor(
+    @Named("LinphoneRxScheduler") private val scheduler: Scheduler,
     private val linphoneContext: LinphoneContextApi,
     private val accountRegistry: LinphoneAccountRegistry,
     @Named("SipEngineLogger") private val logger: Logger
 ) : IdentityResolverApi {
-
-    private val latestNetworkReachabilityUpdate = PublishSubject.create<Boolean>()
 
     private val networkReachableListenerId = linphoneContext
         .createNetworkReachableListener { isNetworkReachable, _ ->
 
             latestNetworkReachabilityUpdate.onNext(isNetworkReachable)
         }
+
+    private val latestNetworkReachabilityUpdate = PublishSubject.create<Boolean>()
 
     private val exposedNetworkReachabilityUpdate = BehaviorSubject.create<Boolean>().apply {
         processNetworkReachabilityUpdates(this)
@@ -65,21 +69,24 @@ class LinphoneIdentityResolver @Inject constructor(
                 }
             }
             .distinctUntilChanged()
+            .subscribeOn(scheduler)
     }
 
     override fun setLocalIdentityProtocolInfo(protocolInfo: ProtocolInfo): Completable {
-        return Completable.create { emitter ->
+        return Completable
+            .create { emitter ->
 
-            if (linphoneContext.setPrimaryContactProtocolInfo(protocolInfo)) {
-                emitter.onComplete()
+                if (linphoneContext.setPrimaryContactProtocolInfo(protocolInfo)) {
+                    emitter.onComplete()
 
-            } else {
-                val error = IllegalStateException(
-                    "Linphone failed to set transport protocol: $protocolInfo."
-                )
-                emitter.onError(error)
+                } else {
+                    val error = IllegalStateException(
+                        "Linphone failed to set transport protocol: $protocolInfo."
+                    )
+                    emitter.onError(error)
+                }
             }
-        }
+            .subscribeOn(scheduler)
     }
 
     private fun processNetworkReachabilityUpdates(subject: BehaviorSubject<Boolean>) {

@@ -1,11 +1,12 @@
 package com.xibasdev.sipcaller.sip.linphone.history
 
 import com.elvishew.xlog.Logger
-import com.xibasdev.sipcaller.sip.SipCallDirection
-import com.xibasdev.sipcaller.sip.SipCallDirection.INCOMING
-import com.xibasdev.sipcaller.sip.SipCallDirection.OUTGOING
 import com.xibasdev.sipcaller.sip.SipCallErrorReason
-import com.xibasdev.sipcaller.sip.SipCallId
+import com.xibasdev.sipcaller.sip.calling.CallDirection
+import com.xibasdev.sipcaller.sip.calling.CallDirection.INCOMING
+import com.xibasdev.sipcaller.sip.calling.CallDirection.OUTGOING
+import com.xibasdev.sipcaller.sip.calling.CallId
+import com.xibasdev.sipcaller.sip.calling.streams.CallStreams
 import com.xibasdev.sipcaller.sip.history.CallFailedUpdate
 import com.xibasdev.sipcaller.sip.history.CallFinishedUpdate
 import com.xibasdev.sipcaller.sip.history.CallHistoryObserverApi
@@ -20,9 +21,26 @@ import com.xibasdev.sipcaller.sip.history.CallInviteAcceptedElsewhere
 import com.xibasdev.sipcaller.sip.history.CallSessionFailed
 import com.xibasdev.sipcaller.sip.history.CallSessionFinishedByCallee
 import com.xibasdev.sipcaller.sip.history.CallSessionFinishedByCaller
-import com.xibasdev.sipcaller.sip.history.ConditionalCallHistoryUpdate
+import com.xibasdev.sipcaller.sip.history.ConditionalCallSessionFinishedUpdate
+import com.xibasdev.sipcaller.sip.identity.LocalIdentity
+import com.xibasdev.sipcaller.sip.identity.RemoteIdentity
+import com.xibasdev.sipcaller.sip.identity.UnreachableIdentity
+import com.xibasdev.sipcaller.sip.linphone.context.LinphoneAccountAddress
 import com.xibasdev.sipcaller.sip.linphone.context.LinphoneCallStateChange
+import com.xibasdev.sipcaller.sip.linphone.context.LinphoneCallStream
 import com.xibasdev.sipcaller.sip.linphone.context.LinphoneContextApi
+import com.xibasdev.sipcaller.sip.linphone.identity.LinphoneIdentityResolver
+import com.xibasdev.sipcaller.sip.linphone.utils.resolveMediaStream
+import com.xibasdev.sipcaller.sip.protocol.DefinedPort
+import com.xibasdev.sipcaller.sip.protocol.ProtocolInfo
+import com.xibasdev.sipcaller.sip.protocol.ProtocolType.TCP
+import com.xibasdev.sipcaller.sip.registering.account.AccountDisplayName
+import com.xibasdev.sipcaller.sip.registering.account.AccountInfo
+import com.xibasdev.sipcaller.sip.registering.account.AccountUsername
+import com.xibasdev.sipcaller.sip.registering.account.EMPTY_DISPLAY_NAME
+import com.xibasdev.sipcaller.sip.registering.account.UNKNOWN_USERNAME
+import com.xibasdev.sipcaller.sip.registering.account.address.AccountDomain
+import com.xibasdev.sipcaller.sip.registering.account.address.AccountDomainAddress
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.subjects.BehaviorSubject
 import io.reactivex.rxjava3.subjects.ReplaySubject
@@ -31,6 +49,7 @@ import java.time.OffsetDateTime
 import java.util.TreeMap
 import javax.inject.Inject
 import javax.inject.Named
+import javax.inject.Singleton
 import org.linphone.core.Call.Dir
 import org.linphone.core.Call.Dir.Incoming
 import org.linphone.core.Call.Dir.Outgoing
@@ -46,18 +65,13 @@ import org.linphone.core.Call.Status.DeclinedElsewhere
 import org.linphone.core.Call.Status.Missed
 import org.linphone.core.Call.Status.Success
 
+@Singleton
 class LinphoneCallHistoryObserver @Inject constructor(
     private val linphoneContext: LinphoneContextApi,
+    private val identityResolver: LinphoneIdentityResolver,
     @Named("SipEngineLogger") private val logger: Logger,
     @Named("LinphoneSipEngineClock") private val clock: Clock
 ) : CallHistoryObserverApi {
-
-    override fun observeCallHistory(): Observable<List<CallHistoryUpdate>> {
-        return callHistory
-    }
-
-    private val currentCallHistoryUpdates = TreeMap<String, CallHistoryUpdate>()
-    private val latestCallHistoryUpdates = BehaviorSubject.create<CallHistoryUpdate>()
 
     private val callStateChangeListenerId = linphoneContext.createCallStateChangeListener {
             callStateChange, _ ->
@@ -67,8 +81,54 @@ class LinphoneCallHistoryObserver @Inject constructor(
         }
     }
 
+    private val currentCallHistoryUpdates = TreeMap<String, CallHistoryUpdate>()
+    private val latestCallHistoryUpdates = BehaviorSubject
+        .create<(AccountInfo) -> CallHistoryUpdate>()
+
     private val callHistory = ReplaySubject.create<List<CallHistoryUpdate>>().apply {
         processCallHistoryUpdates(this)
+    }
+
+    override fun observeCallHistory(offset: OffsetDateTime): Observable<List<CallHistoryUpdate>> {
+        return callHistory
+            .flatMap { updates ->
+
+                val filteredUpdates = updates.flatMap { update ->
+
+                    if (update.timestamp.isAfter(offset)) {
+                        listOf(update)
+
+                    } else {
+                        emptyList()
+                    }
+                }
+
+                if (filteredUpdates.isNotEmpty()) {
+                    Observable.just(filteredUpdates)
+
+                } else {
+                    Observable.empty()
+                }
+            }
+            .startWithItem(callHistory.value ?: emptyList())
+            .distinctUntilChanged { previous, next ->
+
+                if (previous.size != next.size) {
+                    return@distinctUntilChanged false
+                }
+
+                val previousSorted = previous.sortedBy { it.timestamp }
+                val nextSorted = next.sortedBy { it.timestamp }
+
+                previousSorted.foldIndexed(true) {
+                        index, unchanged, previousUpdate ->
+
+                    val nextUpdate = nextSorted[index]
+
+                    unchanged && previousUpdate.callId == nextUpdate.callId &&
+                            ((previousUpdate.javaClass.name == nextUpdate.javaClass.name))
+                }
+            }
     }
 
     context (LinphoneCallStateChange)
@@ -159,55 +219,126 @@ class LinphoneCallHistoryObserver @Inject constructor(
 
     context (LinphoneCallStateChange)
     private fun <T : CallHistoryUpdate> postCallHistoryUpdate(
-        updateCreator: (SipCallId, SipCallDirection, OffsetDateTime) -> T
+        updateCreator: (
+            callId: CallId,
+            direction: CallDirection,
+            timestamp: OffsetDateTime,
+            localAccount: AccountInfo,
+            remoteAccount: AccountInfo,
+            streams: CallStreams
+        ) -> T
     ) {
 
-        val update = updateCreator(
-            createSipCallId(callId),
-            createSipCallDirection(direction),
-            OffsetDateTime.now(clock)
-        )
-        currentCallHistoryUpdates[callId] = update
-        latestCallHistoryUpdates.onNext(update)
+        latestCallHistoryUpdates.onNext { localAccount ->
+
+            val update = updateCreator(
+                createCallId(callId),
+                createCallDirection(direction),
+                OffsetDateTime.now(clock),
+                localAccount,
+                createRemoteAccount(remoteAccountAddress),
+                createCallStreams(audioStream, videoStream)
+            )
+            currentCallHistoryUpdates[callId] = update
+            update
+        }
+    }
+
+    context (LinphoneCallStateChange)
+    private fun <T : CallHistoryUpdate> postCallHistoryUpdate(
+        updateCreator: (
+            callId: CallId,
+            direction: CallDirection,
+            timestamp: OffsetDateTime,
+            localAccount: AccountInfo,
+            remoteAccount: AccountInfo
+        ) -> T
+    ) {
+
+        latestCallHistoryUpdates.onNext { localAccount ->
+
+            val update = updateCreator(
+                createCallId(callId),
+                createCallDirection(direction),
+                OffsetDateTime.now(clock),
+                localAccount,
+                createRemoteAccount(remoteAccountAddress)
+            )
+            currentCallHistoryUpdates[callId] = update
+
+            update
+        }
     }
 
     context (LinphoneCallStateChange)
     private fun <T : CallHistoryUpdate> postConditionalCallHistoryUpdate(
-        updateCreatorIfCallFinishedLocally: (SipCallId, SipCallDirection, OffsetDateTime) -> T,
-        updateCreatorIfCallFinishedRemotely: (SipCallId, SipCallDirection, OffsetDateTime) -> T,
+        updateCreatorIfCallFinishedLocally: (
+            callId: CallId,
+            direction: CallDirection,
+            timestamp: OffsetDateTime,
+            localAccount: AccountInfo,
+            remoteAccount: AccountInfo
+        ) -> T,
+        updateCreatorIfCallFinishedRemotely: (
+            callId: CallId,
+            direction: CallDirection,
+            timestamp: OffsetDateTime,
+            localAccount: AccountInfo,
+            remoteAccount: AccountInfo
+        ) -> T,
     ) {
 
-        val timestamp = OffsetDateTime.now(clock)
+        latestCallHistoryUpdates.onNext { localAccount ->
 
-        val updateIfFinishedByLocalParty = updateCreatorIfCallFinishedLocally(
-            createSipCallId(callId), createSipCallDirection(direction), timestamp
-        )
-        val updateIfFinishedByRemoteParty = updateCreatorIfCallFinishedRemotely(
-            createSipCallId(callId), createSipCallDirection(direction), timestamp
-        )
+            val callId = createCallId(callId)
+            val direction = createCallDirection(direction)
+            val timestamp = OffsetDateTime.now(clock)
 
-        val conditionalUpdate = ConditionalCallHistoryUpdate(
-            createSipCallId(callId), createSipCallDirection(direction),
-            updateIfFinishedByLocalParty, updateIfFinishedByRemoteParty,
-            timestamp
-        )
-        currentCallHistoryUpdates[callId] = conditionalUpdate
-        latestCallHistoryUpdates.onNext(conditionalUpdate)
+            val remoteAccount = createRemoteAccount(remoteAccountAddress)
+
+            val updateIfFinishedByLocalParty = updateCreatorIfCallFinishedLocally(
+                callId, direction, timestamp, localAccount, remoteAccount
+            )
+            val updateIfFinishedByRemoteParty = updateCreatorIfCallFinishedRemotely(
+                callId, direction, timestamp, localAccount, remoteAccount
+            )
+
+            val conditionalUpdate = ConditionalCallSessionFinishedUpdate(
+                callId, direction, timestamp, localAccount, remoteAccount,
+                updateIfFinishedByLocalParty, updateIfFinishedByRemoteParty
+            )
+            currentCallHistoryUpdates[callId.value] = conditionalUpdate
+
+            conditionalUpdate
+        }
     }
 
     context (LinphoneCallStateChange)
     private fun <T : CallFailedUpdate> postCallFailedUpdate(
-        updateCreator: (SipCallId, SipCallDirection, SipCallErrorReason, OffsetDateTime) -> T
+        updateCreator: (
+            callId: CallId,
+            direction: CallDirection,
+            errorReason: SipCallErrorReason,
+            timestamp: OffsetDateTime,
+            localAccount: AccountInfo,
+            remoteAccount: AccountInfo
+        ) -> T
     ) {
 
-        val update = updateCreator(
-            createSipCallId(callId),
-            createSipCallDirection(direction),
-            createSipCallErrorReason(errorReason),
-            OffsetDateTime.now(clock)
-        )
-        currentCallHistoryUpdates[callId] = update
-        latestCallHistoryUpdates.onNext(update)
+        latestCallHistoryUpdates.onNext { localAccount ->
+
+            val update = updateCreator(
+                createCallId(callId),
+                createCallDirection(direction),
+                createErrorReason(errorReason),
+                OffsetDateTime.now(clock),
+                localAccount,
+                createRemoteAccount(remoteAccountAddress)
+            )
+            currentCallHistoryUpdates[callId] = update
+
+            update
+        }
     }
 
     private fun processCallHistoryUpdates(subject: ReplaySubject<List<CallHistoryUpdate>>) {
@@ -224,10 +355,36 @@ class LinphoneCallHistoryObserver @Inject constructor(
                         subject.onNext(emptyList())
                     }
 
-                    latestCallHistoryUpdates
+                    Observable
+                        .combineLatest(
+                            identityResolver.observeIdentity()
+                                .filter { identityUpdate ->
+                                    identityUpdate !is UnreachableIdentity
+                                },
+                            latestCallHistoryUpdates
+                        ) { identity, update ->
+
+                            val localAccount = when (identity) {
+                                is LocalIdentity -> AccountInfo(
+                                    displayName = EMPTY_DISPLAY_NAME,
+                                    username = UNKNOWN_USERNAME,
+                                    address = identity.address
+                                )
+                                is RemoteIdentity -> identity.account
+                                UnreachableIdentity -> {
+                                    // This should never happen, guaranteed by the filter operation
+                                    //   applied to the 'identityResolver.observeIdentity()' source.
+                                    throw IllegalStateException(
+                                        "Unreachable identity update not filtered!"
+                                    )
+                                }
+                            }
+
+                            update(localAccount)
+                        }
                         .flatMap { update ->
 
-                            if (update is ConditionalCallHistoryUpdate) {
+                            if (update is ConditionalCallSessionFinishedUpdate) {
                                 logger.d("Process conditional call history update: $update.")
 
                                 wasCallFinishedByLocalParty(update.callId)
@@ -280,18 +437,53 @@ class LinphoneCallHistoryObserver @Inject constructor(
         }
     }
 
-    private fun createSipCallId(callId: String?): SipCallId {
-        return SipCallId(callId.orEmpty())
+    private fun createCallId(callId: String?): CallId {
+        return CallId(callId.orEmpty())
     }
 
-    private fun createSipCallDirection(direction: Dir?): SipCallDirection {
+    private fun createCallDirection(direction: Dir?): CallDirection {
         return when (direction) {
             Incoming -> INCOMING
             else -> OUTGOING
         }
     }
 
-    private fun createSipCallErrorReason(errorReason: String?): SipCallErrorReason {
+    private fun createCallStreams(
+        audioStream: LinphoneCallStream,
+        videoStream: LinphoneCallStream
+    ): CallStreams {
+
+        return CallStreams(
+            audio = resolveMediaStream(audioStream),
+            video = resolveMediaStream(videoStream)
+        )
+    }
+
+    private fun createErrorReason(errorReason: String?): SipCallErrorReason {
         return SipCallErrorReason(errorReason.orEmpty())
+    }
+
+    private fun createRemoteAccount(remoteAccountAddress: LinphoneAccountAddress): AccountInfo {
+        return AccountInfo(
+            displayName = if (remoteAccountAddress.displayName.isNotEmpty()) {
+                AccountDisplayName(remoteAccountAddress.displayName)
+
+            } else {
+                EMPTY_DISPLAY_NAME
+            },
+            username = if (remoteAccountAddress.username.isNotEmpty()) {
+                AccountUsername(remoteAccountAddress.username)
+
+            } else {
+                UNKNOWN_USERNAME
+            },
+            address = AccountDomainAddress(
+                domain = AccountDomain(remoteAccountAddress.domain),
+                protocol = ProtocolInfo(
+                    type = TCP, // TODO resolve current protocol port in use
+                    port = DefinedPort(remoteAccountAddress.port)
+                )
+            )
+        )
     }
 }

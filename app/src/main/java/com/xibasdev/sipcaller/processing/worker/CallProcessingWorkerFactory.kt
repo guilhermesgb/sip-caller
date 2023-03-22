@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.work.ListenableWorker
 import androidx.work.WorkerParameters
 import com.xibasdev.sipcaller.app.workers.CustomWorkerFactory
-import com.xibasdev.sipcaller.processing.notifier.CallStateNotifierApi
+import com.xibasdev.sipcaller.processing.ProcessingStateNotifier
 import com.xibasdev.sipcaller.sip.SipEngineApi
 import io.reactivex.rxjava3.core.Scheduler
 import javax.inject.Inject
@@ -13,7 +13,7 @@ import javax.inject.Named
 class CallProcessingWorkerFactory @Inject constructor(
     @Named("LinphoneRxScheduler") private val scheduler: Scheduler,
     private val sipEngine: SipEngineApi,
-    private val callStateNotifier: CallStateNotifierApi
+    private val processingStateNotifier: ProcessingStateNotifier
 ) : CustomWorkerFactory() {
 
     override fun getWorkerClassName(): String {
@@ -27,7 +27,7 @@ class CallProcessingWorkerFactory @Inject constructor(
     ): ListenableWorker {
 
         return CallProcessingWorker(
-            context, workerParameters, scheduler, sipEngine, callStateNotifier
+            context, workerParameters, scheduler, sipEngine, processingStateNotifier
         )
     }
 }

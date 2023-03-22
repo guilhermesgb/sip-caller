@@ -10,6 +10,7 @@ import com.xibasdev.sipcaller.sip.registering.account.AccountPassword
 import com.xibasdev.sipcaller.sip.registering.account.AccountUsername
 import com.xibasdev.sipcaller.sip.registering.account.address.AccountDomain
 import com.xibasdev.sipcaller.sip.registering.account.address.AccountDomainAddress
+import com.xibasdev.sipcaller.sip.registering.account.address.AccountIp
 
 object AccountRegistryFixtures {
 
@@ -59,5 +60,17 @@ object AccountRegistryFixtures {
 }
 
 object IdentityResolverFixtures {
-    const val PRIMARY_CONTACT_IP_ADDRESS = "192.168.0.1"
+    val PRIMARY_CONTACT_IP_ADDRESS_1 = AccountIp("192.168.0.1")
+    val LOCAL_PROTOCOL_1 = ProtocolInfo(
+        type = TCP,
+        port = DefinedPort(5060)
+    )
+
+    val REMOTE_DISPLAY_NAME_1 = AccountDisplayName("Remote Peer")
+    val REMOTE_USERNAME_1 = AccountUsername("username")
+    val REMOTE_DOMAIN = AccountDomain("domain")
+    val REMOTE_PROTOCOL_1 = ProtocolInfo(
+        type = TCP,
+        port = DefinedPort(5060)
+    )
 }

@@ -2,13 +2,13 @@ package com.xibasdev.sipcaller.app
 
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
-import com.xibasdev.sipcaller.processing.CallProcessorApi
+import com.xibasdev.sipcaller.processing.CallProcessor
 import io.reactivex.rxjava3.disposables.CompositeDisposable
 import io.reactivex.rxjava3.kotlin.addTo
 import javax.inject.Inject
 
 class SipCallerAppLifecycleObserver @Inject constructor(
-    private val callProcessor: CallProcessorApi
+    private val callProcessor: CallProcessor
 ) : DefaultLifecycleObserver {
 
     private val disposables = CompositeDisposable()

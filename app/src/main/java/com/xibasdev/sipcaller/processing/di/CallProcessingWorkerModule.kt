@@ -7,8 +7,8 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequest
 import androidx.work.PeriodicWorkRequestBuilder
-import com.xibasdev.sipcaller.dto.processing.CallProcessing
-import com.xibasdev.sipcaller.dto.processing.CallProcessingStopped
+import com.xibasdev.sipcaller.processing.dto.CallProcessing
+import com.xibasdev.sipcaller.processing.dto.CallProcessingStopped
 import com.xibasdev.sipcaller.processing.worker.CallProcessingChecksWorker
 import com.xibasdev.sipcaller.processing.worker.CallProcessingWorker
 import dagger.Module

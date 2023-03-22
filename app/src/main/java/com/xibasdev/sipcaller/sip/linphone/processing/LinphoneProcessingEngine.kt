@@ -64,9 +64,9 @@ class LinphoneProcessingEngine @Inject constructor(
 
     private fun doStartEngine(emitter: CompletableEmitter) {
         val globalStateChangeListenerId = linphoneContext.createGlobalStateChangeListener {
-                globalState, thisCoreListenerId, errorReason ->
+                globalStateChange, errorReason, thisCoreListenerId ->
 
-            when (globalState) {
+            when (globalStateChange) {
                 Startup,
                 Configuring -> {}
                 On -> {
@@ -81,7 +81,7 @@ class LinphoneProcessingEngine @Inject constructor(
                 Off,
                 Shutdown -> {
                     val errorMessage = "Failed to start Linphone core; " +
-                            "reason: $errorReason; in state: $globalState!"
+                            "reason: $errorReason; in state: $globalStateChange!"
                     val error = ProcessingEngineStartFailedAsync(errorMessage)
                     logger.e(errorMessage, error)
 

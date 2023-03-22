@@ -8,6 +8,8 @@ open class FakeCoreListener {
 
     open fun onCallStateChange(callStateChange: LinphoneCallStateChange) {}
 
+    open fun onCallStatsChange(callStatsChange: LinphoneCallStatsChange) {}
+
     open fun onAccountRegistrationStateChange(
         accountRegistrationStateChange: LinphoneAccountRegistrationStateChange
     ) {}
