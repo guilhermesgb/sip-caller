@@ -5,8 +5,8 @@ import com.xibasdev.sipcaller.sip.calling.Call
 import com.xibasdev.sipcaller.sip.calling.CallDirection.INCOMING
 import com.xibasdev.sipcaller.sip.calling.CallDirection.OUTGOING
 import com.xibasdev.sipcaller.sip.calling.CallId
-import com.xibasdev.sipcaller.sip.calling.CallInvitationUpdate
-import com.xibasdev.sipcaller.sip.calling.CallSessionUpdate
+import com.xibasdev.sipcaller.sip.calling.details.CallInvitationUpdate
+import com.xibasdev.sipcaller.sip.calling.details.CallSessionUpdate
 import com.xibasdev.sipcaller.sip.calling.CallStage
 import com.xibasdev.sipcaller.sip.calling.CallStage.INVITATION
 import com.xibasdev.sipcaller.sip.calling.CallStage.SESSION
@@ -21,8 +21,8 @@ import com.xibasdev.sipcaller.sip.calling.CallStatus.FINISHED_BY_REMOTE_PARTY
 import com.xibasdev.sipcaller.sip.calling.CallStatus.FINISHED_DUE_TO_ERROR
 import com.xibasdev.sipcaller.sip.calling.CallStatus.MISSED
 import com.xibasdev.sipcaller.sip.calling.CallStatus.RINGING
-import com.xibasdev.sipcaller.sip.calling.CallUpdate
-import com.xibasdev.sipcaller.sip.calling.NoCallUpdateAvailable
+import com.xibasdev.sipcaller.sip.calling.details.CallUpdate
+import com.xibasdev.sipcaller.sip.calling.details.NoCallUpdateAvailable
 import com.xibasdev.sipcaller.sip.calling.details.CallDetailsObserverApi
 import com.xibasdev.sipcaller.sip.calling.parties.CallParties
 import com.xibasdev.sipcaller.sip.calling.streams.CallStreams

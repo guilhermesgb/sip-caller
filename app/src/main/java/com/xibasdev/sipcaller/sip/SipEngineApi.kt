@@ -1,6 +1,7 @@
 package com.xibasdev.sipcaller.sip
 
 import com.xibasdev.sipcaller.sip.calling.details.CallDetailsObserverApi
+import com.xibasdev.sipcaller.sip.calling.features.CallFeaturesManagerApi
 import com.xibasdev.sipcaller.sip.calling.state.CallStateManagerApi
 import com.xibasdev.sipcaller.sip.history.CallHistoryObserverApi
 import com.xibasdev.sipcaller.sip.identity.IdentityResolverApi
@@ -15,4 +16,4 @@ import com.xibasdev.sipcaller.sip.registering.AccountRegistryApi
  *   [com.xibasdev.sipcaller.sip.linphone.LinphoneSipEngine]).
  */
 interface SipEngineApi : ProcessingEngineApi, AccountRegistryApi, IdentityResolverApi,
-    CallHistoryObserverApi, CallDetailsObserverApi, CallStateManagerApi
+    CallHistoryObserverApi, CallDetailsObserverApi, CallStateManagerApi, CallFeaturesManagerApi

@@ -5,7 +5,9 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.work.ListenableWorker.Result.Failure
 import androidx.work.testing.TestListenableWorkerBuilder
-import com.xibasdev.sipcaller.processing.ProcessingStateNotifier
+import com.xibasdev.sipcaller.app.model.worker.CallProcessingWorker
+import com.xibasdev.sipcaller.app.model.worker.CallProcessingWorkerFactory
+import com.xibasdev.sipcaller.app.model.ProcessingStateNotifier
 import com.xibasdev.sipcaller.sip.FakeSipEngine
 import com.xibasdev.sipcaller.test.Completable.prepareInBackgroundAndWaitUpToTimeout
 import com.xibasdev.sipcaller.test.Single.prepareInBackground

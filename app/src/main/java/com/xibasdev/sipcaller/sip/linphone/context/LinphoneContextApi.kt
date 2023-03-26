@@ -1,5 +1,6 @@
 package com.xibasdev.sipcaller.sip.linphone.context
 
+import android.view.Surface
 import com.xibasdev.sipcaller.sip.calling.CallId
 import com.xibasdev.sipcaller.sip.calling.features.CallFeatures
 import com.xibasdev.sipcaller.sip.protocol.ProtocolInfo
@@ -51,48 +52,7 @@ abstract class LinphoneContextApi (private val scheduler: Scheduler) {
 
     abstract fun disableCoreListener(coreListenerId: Int)
 
-    abstract fun createAccount(
-        idKey: String,
-        accountInfo: AccountInfo,
-        password: AccountPassword,
-        expirationMs: Int
-    ): Boolean
-
-    abstract fun deactivateAccount(idKey: String): Boolean
-
-    abstract fun destroyAccount(
-        idKey: String,
-        accountInfo: AccountInfo,
-        password: AccountPassword
-    ): Boolean
-
     abstract fun resolveNetworkCurrentlyReachable(): Boolean
-
-    abstract fun resolvePrimaryContactIpAddress(): String?
-
-    abstract fun getPrimaryContactProtocolInfo(): ProtocolInfo?
-
-    abstract fun setPrimaryContactProtocolInfo(protocolInfo: ProtocolInfo): Boolean
-
-    /**
-     * TODO allow specification of desired initial call parameters at this point
-     */
-    abstract fun sendCallInvitation(account: AccountInfo): Boolean
-
-    abstract fun cancelCallInvitation(callId: CallId): Boolean
-
-    abstract fun acceptCallInvitation(callId: CallId): Boolean
-
-    /**
-     * TODO allow specification of reason for declination of call invitation
-     */
-    abstract fun declineCallInvitation(callId: CallId): Boolean
-
-    abstract fun terminateCallSession(callId: CallId): Boolean
-
-    abstract fun isCurrentlyHandlingCall(): Boolean
-
-    abstract fun enableOrDisableCallFeatures(callId: CallId, features: CallFeatures): Boolean
 
     abstract fun startLinphoneCore(): Int
 
@@ -125,11 +85,60 @@ abstract class LinphoneContextApi (private val scheduler: Scheduler) {
             .addTo(stoppedDisposables)
     }
 
+    abstract fun resolvePrimaryContactIpAddress(): String?
+
+    abstract fun getPrimaryContactProtocolInfo(): ProtocolInfo?
+
+    abstract fun setPrimaryContactProtocolInfo(protocolInfo: ProtocolInfo): Boolean
+
+    abstract fun createAccount(
+        idKey: String,
+        accountInfo: AccountInfo,
+        password: AccountPassword,
+        expirationMs: Int
+    ): Boolean
+
+    abstract fun deactivateAccount(idKey: String): Boolean
+
+    abstract fun destroyAccount(
+        idKey: String,
+        accountInfo: AccountInfo,
+        password: AccountPassword
+    ): Boolean
+
+    /**
+     * TODO allow specification of desired initial call parameters at this point
+     */
+    abstract fun sendCallInvitation(account: AccountInfo): Boolean
+
+    abstract fun cancelCallInvitation(callId: CallId): Boolean
+
+    abstract fun acceptCallInvitation(callId: CallId): Boolean
+
+    /**
+     * TODO allow specification of reason for declination of call invitation
+     */
+    abstract fun declineCallInvitation(callId: CallId): Boolean
+
+    abstract fun terminateCallSession(callId: CallId): Boolean
+
+    abstract fun isCurrentlyHandlingCall(): Boolean
+
+    abstract fun enableOrDisableCallFeatures(callId: CallId, features: CallFeatures): Boolean
+
+    abstract fun setLocalSurface(surface: Surface): Boolean
+
+    abstract fun unsetLocalSurface(): Boolean
+
+    abstract fun setRemoteSurface(surface: Surface): Boolean
+
+    abstract fun unsetRemoteSurface(): Boolean
+
     internal fun setCallFinishedByLocalParty(callId: CallId) {
         wasCallFinishedByLocalParty[callId.value] = true
     }
 
-    fun wasCallFinishedByLocalParty(callId: CallId): Single<Boolean> {
+    internal fun wasCallFinishedByLocalParty(callId: CallId): Single<Boolean> {
         return Single.just(wasCallFinishedByLocalParty.getOrDefault(callId.value, false))
     }
 }

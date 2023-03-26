@@ -3,7 +3,7 @@ package com.xibasdev.sipcaller.app.initializers
 import android.content.Context
 import androidx.work.Configuration
 import androidx.work.WorkManager
-import com.xibasdev.sipcaller.app.workers.DelegatingWorkerFactory
+import com.xibasdev.sipcaller.app.model.common.DelegatingWorkerFactory
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 

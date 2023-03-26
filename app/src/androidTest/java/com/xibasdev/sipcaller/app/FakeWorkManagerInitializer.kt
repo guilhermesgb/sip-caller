@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.work.Configuration
 import androidx.work.testing.WorkManagerTestInitHelper
 import com.xibasdev.sipcaller.app.initializers.WorkManagerInitializerApi
-import com.xibasdev.sipcaller.app.workers.DelegatingWorkerFactory
+import com.xibasdev.sipcaller.app.model.common.DelegatingWorkerFactory
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 

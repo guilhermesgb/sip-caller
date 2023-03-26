@@ -9,11 +9,12 @@ import androidx.work.testing.WorkManagerTestInitHelper
 import com.xibasdev.sipcaller.app.FakeWorkManagerInitializer
 import com.xibasdev.sipcaller.app.SipCallerAppModule
 import com.xibasdev.sipcaller.app.initializers.WorkManagerInitializerApi
-import com.xibasdev.sipcaller.processing.dto.CallProcessingFailed
-import com.xibasdev.sipcaller.processing.dto.CallProcessingStarted
-import com.xibasdev.sipcaller.processing.dto.CallProcessingStopped
-import com.xibasdev.sipcaller.processing.dto.CallProcessingSuspended
-import com.xibasdev.sipcaller.processing.di.CallProcessorDependenciesModule
+import com.xibasdev.sipcaller.app.model.CallProcessor
+import com.xibasdev.sipcaller.app.model.dto.processing.CallProcessingFailed
+import com.xibasdev.sipcaller.app.model.dto.processing.CallProcessingStarted
+import com.xibasdev.sipcaller.app.model.dto.processing.CallProcessingStopped
+import com.xibasdev.sipcaller.app.model.dto.processing.CallProcessingSuspended
+import com.xibasdev.sipcaller.app.model.di.CallProcessorDependenciesModule
 import com.xibasdev.sipcaller.sip.FakeSipEngine
 import com.xibasdev.sipcaller.sip.SipEngineApi
 import com.xibasdev.sipcaller.test.Completable.andThenAfterDelay

@@ -2,7 +2,7 @@ package com.xibasdev.sipcaller.app
 
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
-import com.xibasdev.sipcaller.processing.CallProcessor
+import com.xibasdev.sipcaller.app.model.CallProcessor
 import io.reactivex.rxjava3.disposables.CompositeDisposable
 import io.reactivex.rxjava3.kotlin.addTo
 import javax.inject.Inject

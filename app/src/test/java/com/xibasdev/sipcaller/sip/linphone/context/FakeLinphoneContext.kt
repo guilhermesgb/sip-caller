@@ -1,5 +1,6 @@
 package com.xibasdev.sipcaller.sip.linphone.context
 
+import android.view.Surface
 import com.xibasdev.sipcaller.sip.calling.CallId
 import com.xibasdev.sipcaller.sip.calling.features.CallFeatures
 import com.xibasdev.sipcaller.sip.protocol.ProtocolInfo
@@ -107,39 +108,6 @@ class FakeLinphoneContext(
         return coreListenerId
     }
 
-    override fun createCallStateChangeListener(
-        callback: (callStateChange: LinphoneCallStateChange, coreListenerId: Int) -> Unit
-    ): Int {
-
-        val fakeCoreListener = object : FakeCoreListener() {
-            override fun onCallStateChange(callStateChange: LinphoneCallStateChange) {
-                callback(callStateChange, this.hashCode())
-            }
-        }
-
-        val coreListenerId = fakeCoreListener.hashCode()
-        coreListeners[coreListenerId] = Pair(fakeCoreListener, false)
-        return coreListenerId
-    }
-
-    override fun createCallStatsChangeListener(
-        callback: (
-            callStatsChange: LinphoneCallStatsChange,
-            coreListenerId: Int
-        ) -> Unit
-    ): Int {
-
-        val fakeCoreListener = object : FakeCoreListener() {
-            override fun onCallStatsChange(callStatsChange: LinphoneCallStatsChange) {
-                callback(callStatsChange, this.hashCode())
-            }
-        }
-
-        val coreListenerId = fakeCoreListener.hashCode()
-        coreListeners[coreListenerId] = Pair(fakeCoreListener, false)
-        return coreListenerId
-    }
-
     override fun createAccountRegistrationStateChangeListener(
         callback: (
             callStateChange: LinphoneAccountRegistrationStateChange,
@@ -175,6 +143,39 @@ class FakeLinphoneContext(
         return coreListenerId
     }
 
+    override fun createCallStateChangeListener(
+        callback: (callStateChange: LinphoneCallStateChange, coreListenerId: Int) -> Unit
+    ): Int {
+
+        val fakeCoreListener = object : FakeCoreListener() {
+            override fun onCallStateChange(callStateChange: LinphoneCallStateChange) {
+                callback(callStateChange, this.hashCode())
+            }
+        }
+
+        val coreListenerId = fakeCoreListener.hashCode()
+        coreListeners[coreListenerId] = Pair(fakeCoreListener, false)
+        return coreListenerId
+    }
+
+    override fun createCallStatsChangeListener(
+        callback: (
+            callStatsChange: LinphoneCallStatsChange,
+            coreListenerId: Int
+        ) -> Unit
+    ): Int {
+
+        val fakeCoreListener = object : FakeCoreListener() {
+            override fun onCallStatsChange(callStatsChange: LinphoneCallStatsChange) {
+                callback(callStatsChange, this.hashCode())
+            }
+        }
+
+        val coreListenerId = fakeCoreListener.hashCode()
+        coreListeners[coreListenerId] = Pair(fakeCoreListener, false)
+        return coreListenerId
+    }
+
     override fun enableCoreListener(coreListenerId: Int) {
         if (!coreListeners.containsKey(coreListenerId)) {
             throw IllegalStateException("Core listener of ID '$$coreListenerId' not found!")
@@ -195,118 +196,6 @@ class FakeLinphoneContext(
 
             coreListeners[coreListenerId] = listenerStatus.copy(second = false)
         }
-    }
-
-    override fun createAccount(
-        idKey: String,
-        accountInfo: AccountInfo,
-        password: AccountPassword,
-        expirationMs: Int
-    ): Boolean {
-
-        enqueueAccountRegistrationStateChange(
-            LinphoneAccountRegistrationStateChange(
-                idKey = idKey,
-                state = None,
-                errorReason = ""
-            )
-        )
-
-        if (failAsynchronouslyOnAccountRegistration) {
-            simulatedRegistrationProgressTargetState[idKey] = Failed
-
-        } else if (simulateStuckWhileRegisteringAccount) {
-            simulatedRegistrationProgressTargetState[idKey] = Progress
-
-        } else {
-            simulatedRegistrationProgressTargetState[idKey] = Ok
-        }
-
-        enqueueAccountRegistrationStateChange(
-            LinphoneAccountRegistrationStateChange(
-                idKey = idKey,
-                state = Progress,
-                errorReason = ""
-            )
-        )
-
-        return !failSynchronouslyOnAccountCreation
-    }
-
-    override fun deactivateAccount(idKey: String): Boolean {
-        if (failAsynchronouslyOnAccountUnregistration) {
-            simulatedRegistrationProgressTargetState[idKey] = Failed
-
-        } else if (simulateStuckWhileUnregisteringAccount) {
-            simulatedRegistrationProgressTargetState[idKey] = Progress
-
-        } else {
-            simulatedRegistrationProgressTargetState[idKey] = Cleared
-        }
-
-        enqueueAccountRegistrationStateChange(
-            LinphoneAccountRegistrationStateChange(
-                idKey = idKey,
-                state = Progress,
-                errorReason = ""
-            )
-        )
-
-        return !failSynchronouslyOnAccountDeactivation
-    }
-
-    override fun destroyAccount(
-        idKey: String,
-        accountInfo: AccountInfo,
-        password: AccountPassword
-    ): Boolean {
-        return !failSynchronouslyOnAccountDestruction
-    }
-
-    override fun resolveNetworkCurrentlyReachable(): Boolean {
-        return currentIsNetworkReachable
-    }
-
-    override fun resolvePrimaryContactIpAddress(): String? {
-        return currentPrimaryContactIpAddress
-    }
-
-    override fun getPrimaryContactProtocolInfo(): ProtocolInfo? {
-        return currentPrimaryContactProtocolInfo
-    }
-
-    override fun setPrimaryContactProtocolInfo(protocolInfo: ProtocolInfo): Boolean {
-        currentPrimaryContactProtocolInfo = protocolInfo
-
-        return true
-    }
-
-    override fun sendCallInvitation(account: AccountInfo): Boolean {
-        TODO("Not yet implemented")
-    }
-
-    override fun cancelCallInvitation(callId: CallId): Boolean {
-        TODO("Not yet implemented")
-    }
-
-    override fun acceptCallInvitation(callId: CallId): Boolean {
-        TODO("Not yet implemented")
-    }
-
-    override fun declineCallInvitation(callId: CallId): Boolean {
-        TODO("Not yet implemented")
-    }
-
-    override fun terminateCallSession(callId: CallId): Boolean {
-        TODO("Not yet implemented")
-    }
-
-    override fun isCurrentlyHandlingCall(): Boolean {
-        return isCurrentlyHandlingCall
-    }
-
-    override fun enableOrDisableCallFeatures(callId: CallId, features: CallFeatures): Boolean {
-        TODO("Not yet implemented")
     }
 
     override fun startLinphoneCore(): Int {
@@ -389,6 +278,134 @@ class FakeLinphoneContext(
                 "Fake failure while linphone core was iterating!"
             )
         }
+    }
+
+    override fun resolveNetworkCurrentlyReachable(): Boolean {
+        return currentIsNetworkReachable
+    }
+
+    override fun resolvePrimaryContactIpAddress(): String? {
+        return currentPrimaryContactIpAddress
+    }
+
+    override fun getPrimaryContactProtocolInfo(): ProtocolInfo? {
+        return currentPrimaryContactProtocolInfo
+    }
+
+    override fun setPrimaryContactProtocolInfo(protocolInfo: ProtocolInfo): Boolean {
+        currentPrimaryContactProtocolInfo = protocolInfo
+
+        return true
+    }
+
+    override fun createAccount(
+        idKey: String,
+        accountInfo: AccountInfo,
+        password: AccountPassword,
+        expirationMs: Int
+    ): Boolean {
+
+        enqueueAccountRegistrationStateChange(
+            LinphoneAccountRegistrationStateChange(
+                idKey = idKey,
+                state = None,
+                errorReason = ""
+            )
+        )
+
+        if (failAsynchronouslyOnAccountRegistration) {
+            simulatedRegistrationProgressTargetState[idKey] = Failed
+
+        } else if (simulateStuckWhileRegisteringAccount) {
+            simulatedRegistrationProgressTargetState[idKey] = Progress
+
+        } else {
+            simulatedRegistrationProgressTargetState[idKey] = Ok
+        }
+
+        enqueueAccountRegistrationStateChange(
+            LinphoneAccountRegistrationStateChange(
+                idKey = idKey,
+                state = Progress,
+                errorReason = ""
+            )
+        )
+
+        return !failSynchronouslyOnAccountCreation
+    }
+
+    override fun deactivateAccount(idKey: String): Boolean {
+        if (failAsynchronouslyOnAccountUnregistration) {
+            simulatedRegistrationProgressTargetState[idKey] = Failed
+
+        } else if (simulateStuckWhileUnregisteringAccount) {
+            simulatedRegistrationProgressTargetState[idKey] = Progress
+
+        } else {
+            simulatedRegistrationProgressTargetState[idKey] = Cleared
+        }
+
+        enqueueAccountRegistrationStateChange(
+            LinphoneAccountRegistrationStateChange(
+                idKey = idKey,
+                state = Progress,
+                errorReason = ""
+            )
+        )
+
+        return !failSynchronouslyOnAccountDeactivation
+    }
+
+    override fun destroyAccount(
+        idKey: String,
+        accountInfo: AccountInfo,
+        password: AccountPassword
+    ): Boolean {
+        return !failSynchronouslyOnAccountDestruction
+    }
+
+    override fun sendCallInvitation(account: AccountInfo): Boolean {
+        TODO("Not yet implemented")
+    }
+
+    override fun cancelCallInvitation(callId: CallId): Boolean {
+        TODO("Not yet implemented")
+    }
+
+    override fun acceptCallInvitation(callId: CallId): Boolean {
+        TODO("Not yet implemented")
+    }
+
+    override fun declineCallInvitation(callId: CallId): Boolean {
+        TODO("Not yet implemented")
+    }
+
+    override fun terminateCallSession(callId: CallId): Boolean {
+        TODO("Not yet implemented")
+    }
+
+    override fun isCurrentlyHandlingCall(): Boolean {
+        return isCurrentlyHandlingCall
+    }
+
+    override fun enableOrDisableCallFeatures(callId: CallId, features: CallFeatures): Boolean {
+        TODO("Not yet implemented")
+    }
+
+    override fun setLocalSurface(surface: Surface): Boolean {
+        TODO("Not yet implemented")
+    }
+
+    override fun unsetLocalSurface(): Boolean {
+        TODO("Not yet implemented")
+    }
+
+    override fun setRemoteSurface(surface: Surface): Boolean {
+        TODO("Not yet implemented")
+    }
+
+    override fun unsetRemoteSurface(): Boolean {
+        TODO("Not yet implemented")
     }
 
     override fun failSynchronouslyOnLinphoneCoreStart() {

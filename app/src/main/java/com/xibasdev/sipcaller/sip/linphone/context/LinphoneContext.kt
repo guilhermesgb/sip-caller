@@ -1,6 +1,7 @@
 package com.xibasdev.sipcaller.sip.linphone.context
 
 import android.util.SparseArray
+import android.view.Surface
 import androidx.core.util.valueIterator
 import com.elvishew.xlog.Logger
 import com.xibasdev.sipcaller.sip.calling.CallId
@@ -230,6 +231,72 @@ class LinphoneContext @Inject constructor(
         linphoneCore.removeListener(coreListeners.get(coreListenerId))
     }
 
+    override fun startLinphoneCore(): Int {
+        return linphoneCore.start()
+    }
+
+    override fun iterateLinphoneCore() {
+        linphoneCore.iterate()
+    }
+
+    override fun resolveNetworkCurrentlyReachable(): Boolean {
+        return linphoneCore.isNetworkReachable
+    }
+
+    override fun resolvePrimaryContactIpAddress(): String? {
+        return linphoneCore.createPrimaryContactParsed()?.domain
+    }
+
+    override fun getPrimaryContactProtocolInfo(): ProtocolInfo? {
+        return if (linphoneCore.transportsUsed.tcpPort != 0) {
+            ProtocolInfo(
+                type = TCP,
+                port = DefinedPort(linphoneCore.transportsUsed.tcpPort),
+                sips = SecureProtocolInfo(
+                    enabled = linphoneCore.transportsUsed.tlsPort != 0,
+                    port = DefinedPort(linphoneCore.transportsUsed.tlsPort)
+                ),
+                srtp = SecureProtocolInfo(
+                    enabled = linphoneCore.transportsUsed.dtlsPort != 0,
+                    port = DefinedPort(linphoneCore.transportsUsed.dtlsPort)
+                )
+            )
+
+        } else if (linphoneCore.transportsUsed.udpPort != 0) {
+            ProtocolInfo(
+                type = UDP,
+                port = DefinedPort(linphoneCore.transportsUsed.udpPort),
+                sips = SecureProtocolInfo(enabled = false, port = RandomPort),
+                srtp = SecureProtocolInfo(enabled = false, port = RandomPort)
+            )
+
+        } else null
+    }
+
+    override fun setPrimaryContactProtocolInfo(protocolInfo: ProtocolInfo): Boolean {
+        with (protocolInfo) {
+            val transportProtocolsSuccessfullySet = linphoneCore.setTransports(
+                Factory.instance().createTransports().apply {
+                    when (type) {
+                        TCP -> {
+                            tcpPort = port.value
+                            tlsPort = if (sips.enabled) { sips.port.value } else 0
+                            dtlsPort = if (srtp.enabled) { srtp.port.value } else 0
+                            udpPort = 0
+                        }
+                        UDP -> {
+                            tcpPort = 0
+                            tlsPort = 0
+                            dtlsPort = 0
+                            udpPort = port.value
+                        }
+                    }
+                }
+            )
+            return transportProtocolsSuccessfullySet == 0
+        }
+    }
+
     override fun createAccount(
         idKey: String,
         accountInfo: AccountInfo,
@@ -352,64 +419,6 @@ class LinphoneContext @Inject constructor(
             }
 
             return linphoneCore.getAccountByIdkey(idKey) == null
-        }
-    }
-
-    override fun resolveNetworkCurrentlyReachable(): Boolean {
-        return linphoneCore.isNetworkReachable
-    }
-
-    override fun resolvePrimaryContactIpAddress(): String? {
-        return linphoneCore.createPrimaryContactParsed()?.domain
-    }
-
-    override fun getPrimaryContactProtocolInfo(): ProtocolInfo? {
-        return if (linphoneCore.transportsUsed.tcpPort != 0) {
-            ProtocolInfo(
-                type = TCP,
-                port = DefinedPort(linphoneCore.transportsUsed.tcpPort),
-                sips = SecureProtocolInfo(
-                    enabled = linphoneCore.transportsUsed.tlsPort != 0,
-                    port = DefinedPort(linphoneCore.transportsUsed.tlsPort)
-                ),
-                srtp = SecureProtocolInfo(
-                    enabled = linphoneCore.transportsUsed.dtlsPort != 0,
-                    port = DefinedPort(linphoneCore.transportsUsed.dtlsPort)
-                )
-            )
-
-        } else if (linphoneCore.transportsUsed.udpPort != 0) {
-            ProtocolInfo(
-                type = UDP,
-                port = DefinedPort(linphoneCore.transportsUsed.udpPort),
-                sips = SecureProtocolInfo(enabled = false, port = RandomPort),
-                srtp = SecureProtocolInfo(enabled = false, port = RandomPort)
-            )
-
-        } else null
-    }
-
-    override fun setPrimaryContactProtocolInfo(protocolInfo: ProtocolInfo): Boolean {
-        with (protocolInfo) {
-            val transportProtocolsSuccessfullySet = linphoneCore.setTransports(
-                Factory.instance().createTransports().apply {
-                    when (type) {
-                        TCP -> {
-                            tcpPort = port.value
-                            tlsPort = if (sips.enabled) { sips.port.value } else 0
-                            dtlsPort = if (srtp.enabled) { srtp.port.value } else 0
-                            udpPort = 0
-                        }
-                        UDP -> {
-                            tcpPort = 0
-                            tlsPort = 0
-                            dtlsPort = 0
-                            udpPort = port.value
-                        }
-                    }
-                }
-            )
-            return transportProtocolsSuccessfullySet == 0
         }
     }
 
@@ -540,12 +549,24 @@ class LinphoneContext @Inject constructor(
         }
     }
 
-    override fun startLinphoneCore(): Int {
-        return linphoneCore.start()
+    override fun setLocalSurface(surface: Surface): Boolean {
+        linphoneCore.nativePreviewWindowId = surface
+        return linphoneCore.nativePreviewWindowId == surface
     }
 
-    override fun iterateLinphoneCore() {
-        linphoneCore.iterate()
+    override fun unsetLocalSurface(): Boolean {
+        linphoneCore.nativePreviewWindowId = null
+        return linphoneCore.nativePreviewWindowId == null
+    }
+
+    override fun setRemoteSurface(surface: Surface): Boolean {
+        linphoneCore.nativeVideoWindowId = surface
+        return linphoneCore.nativeVideoWindowId == surface
+    }
+
+    override fun unsetRemoteSurface(): Boolean {
+        linphoneCore.nativeVideoWindowId = null
+        return linphoneCore.nativeVideoWindowId == null
     }
 
     private fun resolveRemoteAccountAddress(call: Call): LinphoneAccountAddress {

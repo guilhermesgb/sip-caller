@@ -1,8 +1,8 @@
 package com.xibasdev.sipcaller.sip
 
-import com.xibasdev.sipcaller.processing.worker.CALL_PROCESSING_RATE_MS
+import com.xibasdev.sipcaller.app.model.worker.CALL_PROCESSING_RATE_MS
 import com.xibasdev.sipcaller.sip.calling.CallId
-import com.xibasdev.sipcaller.sip.calling.CallUpdate
+import com.xibasdev.sipcaller.sip.calling.details.CallUpdate
 import com.xibasdev.sipcaller.sip.history.CallHistoryUpdate
 import com.xibasdev.sipcaller.sip.identity.IdentityUpdate
 import com.xibasdev.sipcaller.sip.protocol.ProtocolInfo
