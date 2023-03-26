@@ -40,7 +40,7 @@
             android:foregroundServiceType="camera|microphone"
             tools:node="merge" />
 
-        <activity android:name=".app.ProfileActivity"
+        <activity android:name=".app.SipCallerActivity"
             android:exported="true">
 
             <intent-filter>
@@ -50,8 +50,6 @@
             </intent-filter>
 
         </activity>
-
-        <activity android:name=".app.CallActivity" />
 
     </application>
 

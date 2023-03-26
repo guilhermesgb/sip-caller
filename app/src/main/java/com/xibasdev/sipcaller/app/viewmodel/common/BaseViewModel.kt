@@ -1,7 +1,6 @@
 package com.xibasdev.sipcaller.app.viewmodel.common
 
 import androidx.lifecycle.ViewModel
-import com.xibasdev.sipcaller.app.viewmodel.profile.events.ViewModelEvent
 import io.reactivex.rxjava3.core.Completable
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.disposables.CompositeDisposable
@@ -16,7 +15,12 @@ open class BaseViewModel : ViewModel() {
 
     private val events = BehaviorSubject.create<ViewModelEvent>()
 
-    internal fun <T : Any> Observable<T>.continuousDebouncer(
+    fun observeEvents(): Observable<ViewModelEvent> {
+        return events
+    }
+
+    internal fun <T : Any> Observable<T>.debounceAndContinuouslyPropagateResultAsEvent(
+        onRunningEvent: ViewModelEvent,
         onCompleteEvent: ViewModelEvent,
         onErrorEventProvider: (Throwable) -> ViewModelEvent,
         completableOperationProvider: (T) -> Completable
@@ -26,45 +30,57 @@ open class BaseViewModel : ViewModel() {
             .switchMapCompletable {
 
                 completableOperationProvider(it)
+                    .doOnSubscribe { events.onNext(onRunningEvent) }
+                    .doOnComplete { events.onNext(onCompleteEvent) }
             }
-            .continuouslyPropagateResultAsEvent(onCompleteEvent) { error ->
+            .doOnError { error ->
 
-                onErrorEventProvider(error)
+                events.onNext(onErrorEventProvider(error))
             }
+            .onErrorResumeWith {
+                debounceAndContinuouslyPropagateResultAsEvent(
+                    onRunningEvent, onCompleteEvent, onErrorEventProvider,
+                    completableOperationProvider
+                )
+            }
+            .subscribe()
+            .addTo(disposables)
     }
 
     internal fun Completable.continuouslyPropagateResultAsEvent(
+        onRunningEvent: ViewModelEvent,
         onCompleteEvent: ViewModelEvent,
         onErrorEventProvider: (Throwable) -> ViewModelEvent
     ) {
 
-        doOnComplete {
+        doOnSubscribe {
+            events.onNext(onRunningEvent)
+        }.doOnComplete {
             events.onNext(onCompleteEvent)
         }.doOnError { error ->
 
             events.onNext(onErrorEventProvider(error))
         }.onErrorResumeWith {
-            continuouslyPropagateResultAsEvent(onCompleteEvent, onErrorEventProvider)
+            continuouslyPropagateResultAsEvent(
+                onRunningEvent, onCompleteEvent, onErrorEventProvider
+            )
         }.subscribe()
             .addTo(disposables)
     }
 
     internal fun Completable.propagateResultAsEvent(
+        onRunningEvent: ViewModelEvent,
         onCompleteEvent: ViewModelEvent,
         onErrorEventProvider: (Throwable) -> ViewModelEvent
-    ) = subscribeBy(
-        onComplete = {
-            events.onNext(onCompleteEvent)
-        },
+    ) = doOnSubscribe {
+        events.onNext(onRunningEvent)
+    }.subscribeBy(
+        onComplete = { events.onNext(onCompleteEvent) },
         onError = { error ->
 
             events.onNext(onErrorEventProvider(error))
         }
     ).addTo(disposables)
-
-    internal fun propagateResultImmediately(event: ViewModelEvent) {
-        events.onNext(event)
-    }
 
     override fun onCleared() {
         disposables.dispose()
