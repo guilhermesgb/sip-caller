@@ -16,6 +16,7 @@ import com.xibasdev.sipcaller.sip.history.CallInvitationMissed
 import com.xibasdev.sipcaller.sip.history.CallInviteAcceptedElsewhere
 import com.xibasdev.sipcaller.sip.linphone.LinphoneSipEngine
 import com.xibasdev.sipcaller.sip.linphone.calling.details.LinphoneCallDetailsObserver
+import com.xibasdev.sipcaller.sip.linphone.calling.features.LinphoneCallFeaturesManager
 import com.xibasdev.sipcaller.sip.linphone.calling.state.LinphoneCallStateManager
 import com.xibasdev.sipcaller.sip.linphone.context.FakeLinphoneContext
 import com.xibasdev.sipcaller.sip.linphone.identity.LinphoneIdentityResolver
@@ -77,9 +78,12 @@ class LinphoneCallHistoryObserverTest {
         val callStateManager = LinphoneCallStateManager(
             TEST_SCHEDULER, linphoneContext, logger
         )
+        val callFeaturesManager = LinphoneCallFeaturesManager(
+            TEST_SCHEDULER, linphoneContext, callDetailsObserver
+        )
         val sipEngine = LinphoneSipEngine(
-            processingEngine, accountRegistry, identityResolver,
-            callHistoryObserver, callDetailsObserver, callStateManager
+            processingEngine, accountRegistry, identityResolver, callHistoryObserver,
+            callDetailsObserver, callStateManager, callFeaturesManager
         )
 
         this.processingEngine = sipEngine
@@ -305,8 +309,6 @@ class LinphoneCallHistoryObserverTest {
             .prepareInForeground()
 
         observable.simulateWaitUpToTimeout()
-
-        println(observable.values())
 
         observable.assertNotComplete()
         observable.assertValueCount(3)

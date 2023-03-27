@@ -14,12 +14,18 @@ import com.xibasdev.sipcaller.app.viewmodel.events.calling.cancel.CancelingCallI
 import com.xibasdev.sipcaller.app.viewmodel.events.calling.decline.CallInvitationDeclined
 import com.xibasdev.sipcaller.app.viewmodel.events.calling.decline.DeclineCallInvitationFailed
 import com.xibasdev.sipcaller.app.viewmodel.events.calling.decline.DecliningCallInvitation
-import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.local.LocalSurfaceUpdated
-import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.local.UpdateLocalSurfaceFailed
-import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.local.UpdatingLocalSurface
-import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.remote.RemoteSurfaceUpdated
-import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.remote.UpdateRemoteSurfaceFailed
-import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.remote.UpdatingRemoteSurface
+import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.local.destroy.DestroyLocalSurfaceFailed
+import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.local.destroy.DestroyingLocalSurface
+import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.local.destroy.LocalSurfaceDestroyed
+import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.local.update.LocalSurfaceUpdated
+import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.local.update.UpdateLocalSurfaceFailed
+import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.local.update.UpdatingLocalSurface
+import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.remote.destroy.DestroyRemoteSurfaceFailed
+import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.remote.destroy.DestroyingRemoteSurface
+import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.remote.destroy.RemoteSurfaceDestroyed
+import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.remote.update.RemoteSurfaceUpdated
+import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.remote.update.UpdateRemoteSurfaceFailed
+import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.remote.update.UpdatingRemoteSurface
 import com.xibasdev.sipcaller.app.viewmodel.events.calling.terminate.CallSessionTerminated
 import com.xibasdev.sipcaller.app.viewmodel.events.calling.terminate.TerminateCallSessionFailed
 import com.xibasdev.sipcaller.app.viewmodel.events.calling.terminate.TerminatingCallSession
@@ -31,6 +37,7 @@ import com.xibasdev.sipcaller.sip.calling.details.NoCallUpdateAvailable
 import com.xibasdev.sipcaller.sip.identity.IdentityUpdate
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.reactivex.rxjava3.core.Observable
+import io.reactivex.rxjava3.kotlin.addTo
 import javax.inject.Inject
 
 @HiltViewModel
@@ -39,6 +46,10 @@ class CallViewModel @Inject constructor(
     private val lifecycleAwareSurfaceManager: LifecycleAwareSurfaceManager
 ) : BaseViewModel() {
 
+    fun onUpdateLifecycle(lifecycle: Lifecycle) {
+        lifecycleAwareSurfaceManager.onUpdateLifecycle(lifecycle)
+    }
+
     fun observeCallInProgress(callId: CallId): Observable<Boolean> {
         lifecycleAwareSurfaceManager
             .manageSurfaceUpdates(
@@ -46,17 +57,19 @@ class CallViewModel @Inject constructor(
                 onUseSurface = { surface ->
 
                     sipEngineClient.setLocalCameraFeedSurface(callId, surface)
+                        .doOnSubscribe { events.onNext(UpdatingLocalSurface) }
+                        .doOnComplete { events.onNext(LocalSurfaceUpdated) }
+                        .doOnError { error -> events.onNext(UpdateLocalSurfaceFailed(error)) }
                 },
                 onFreeSurface = {
                     sipEngineClient.unsetLocalCameraFeedSurface(callId)
+                        .doOnSubscribe { events.onNext(DestroyingLocalSurface) }
+                        .doOnComplete { events.onNext(LocalSurfaceDestroyed) }
+                        .doOnError { error -> events.onNext(DestroyLocalSurfaceFailed(error)) }
                 }
             )
-            .continuouslyPropagateResultAsEvent(
-                UpdatingLocalSurface, LocalSurfaceUpdated
-            ) { error ->
-
-                UpdateLocalSurfaceFailed(error)
-            }
+            .subscribe()
+            .addTo(disposables)
 
         lifecycleAwareSurfaceManager
             .manageSurfaceUpdates(
@@ -64,17 +77,19 @@ class CallViewModel @Inject constructor(
                 onUseSurface = { surface ->
 
                     sipEngineClient.setRemoteVideoFeedSurface(callId, surface)
+                        .doOnSubscribe { events.onNext(UpdatingRemoteSurface) }
+                        .doOnComplete { events.onNext(RemoteSurfaceUpdated) }
+                        .doOnError { error -> events.onNext(UpdateRemoteSurfaceFailed(error)) }
                 },
                 onFreeSurface = {
                     sipEngineClient.unsetRemoteVideoFeedSurface(callId)
+                        .doOnSubscribe { events.onNext(DestroyingRemoteSurface) }
+                        .doOnComplete { events.onNext(RemoteSurfaceDestroyed) }
+                        .doOnError { error -> events.onNext(DestroyRemoteSurfaceFailed(error)) }
                 }
             )
-            .continuouslyPropagateResultAsEvent(
-                UpdatingRemoteSurface, RemoteSurfaceUpdated
-            ) { error ->
-
-                UpdateRemoteSurfaceFailed(error)
-            }
+            .subscribe()
+            .addTo(disposables)
 
         return observeCallDetails(callId)
             .map { update ->
@@ -85,7 +100,7 @@ class CallViewModel @Inject constructor(
                     NoCallUpdateAvailable -> false
                 }
             }
-            .distinctUntilChanged()
+            .distinctUntilChanged { previous, next -> previous == next }
     }
 
     fun observeCallDetails(callId: CallId): Observable<CallUpdate> {
@@ -96,16 +111,22 @@ class CallViewModel @Inject constructor(
         return sipEngineClient.observeIdentity()
     }
 
-    fun onUpdateLifecycle(lifecycle: Lifecycle) {
-        lifecycleAwareSurfaceManager.onUpdateLifecycle(lifecycle)
+    fun onUpdateLocalSurfaceView(surfaceView: SurfaceView?) {
+        if (surfaceView == null) {
+            lifecycleAwareSurfaceManager.onSurfaceViewDestroyed(SURFACE_CODE_LOCAL)
+
+        } else {
+            lifecycleAwareSurfaceManager.onUpdateSurfaceView(SURFACE_CODE_LOCAL, surfaceView)
+        }
     }
 
-    fun onUpdateLocalSurfaceView(surfaceView: SurfaceView) {
-        lifecycleAwareSurfaceManager.onUpdateSurfaceView(SURFACE_CODE_LOCAL, surfaceView)
-    }
+    fun onUpdateRemoteSurfaceView(surfaceView: SurfaceView?) {
+        if (surfaceView == null) {
+            lifecycleAwareSurfaceManager.onSurfaceViewDestroyed(SURFACE_CODE_REMOTE)
 
-    fun onUpdateRemoteSurfaceView(surfaceView: SurfaceView) {
-        lifecycleAwareSurfaceManager.onUpdateSurfaceView(SURFACE_CODE_REMOTE, surfaceView)
+        } else {
+            lifecycleAwareSurfaceManager.onUpdateSurfaceView(SURFACE_CODE_REMOTE, surfaceView)
+        }
     }
 
     fun cancelCallInvitation(callId: CallId) {

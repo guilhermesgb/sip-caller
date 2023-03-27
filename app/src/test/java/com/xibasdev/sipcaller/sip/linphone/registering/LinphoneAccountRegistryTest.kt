@@ -4,6 +4,7 @@ import com.elvishew.xlog.Logger
 import com.elvishew.xlog.XLog
 import com.xibasdev.sipcaller.sip.linphone.LinphoneSipEngine
 import com.xibasdev.sipcaller.sip.linphone.calling.details.LinphoneCallDetailsObserver
+import com.xibasdev.sipcaller.sip.linphone.calling.features.LinphoneCallFeaturesManager
 import com.xibasdev.sipcaller.sip.linphone.calling.state.LinphoneCallStateManager
 import com.xibasdev.sipcaller.sip.linphone.context.FakeLinphoneContext
 import com.xibasdev.sipcaller.sip.linphone.history.LinphoneCallHistoryObserver
@@ -76,9 +77,12 @@ class LinphoneAccountRegistryTest {
         val callStateManager = LinphoneCallStateManager(
             TEST_SCHEDULER, linphoneContext, logger
         )
+        val callFeaturesManager = LinphoneCallFeaturesManager(
+            TEST_SCHEDULER, linphoneContext, callDetailsObserver
+        )
         val sipEngine = LinphoneSipEngine(
-            processingEngine, accountRegistry, identityResolver,
-            callHistoryObserver, callDetailsObserver, callStateManager
+            processingEngine, accountRegistry, identityResolver, callHistoryObserver,
+            callDetailsObserver, callStateManager, callFeaturesManager
         )
 
         this.processingEngine = sipEngine

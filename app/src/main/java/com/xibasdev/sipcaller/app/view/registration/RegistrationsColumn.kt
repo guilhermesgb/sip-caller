@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xibasdev.sipcaller.app.view.common.ItemsColumn
+import com.xibasdev.sipcaller.app.view.common.toRawString
 import com.xibasdev.sipcaller.app.viewmodel.common.Indexed
 import com.xibasdev.sipcaller.sip.registering.AccountRegistrationUpdate
 import com.xibasdev.sipcaller.sip.registering.NoAccountRegistered
@@ -50,7 +51,7 @@ fun RegistrationsColumn(
             onDestroyRegistration = onDestroyRegistration
         )
 
-        RegistrationsLog(
+        RecentRegistrationsLog(
             registrationUpdatesProvider = registrationUpdatesProvider,
             modifier = Modifier.fillMaxWidth()
                 .weight(1.0f, fill = true)
@@ -65,6 +66,8 @@ private fun RegisterAccountView(
     onCreateRegistration: (rawAccountRegistration: String) -> Unit,
     onDestroyRegistration: () -> Unit
 ) {
+    val textInput = remember { mutableStateOf("") }
+
     val registrationUpdates = registrationUpdatesProvider()
 
     val (enableInputForm, showRegisterButton) = when {
@@ -81,7 +84,13 @@ private fun RegisterAccountView(
         }
     }
 
-    val textInput = remember { mutableStateOf("") }
+    if (registrationUpdates.isNotEmpty()) {
+        val registrationUpdate = registrationUpdates.first().value
+
+        if (registrationUpdate is RegisteredAccount) {
+            textInput.value = registrationUpdate.account.toRawString(includeDisplayName = false)
+        }
+    }
 
     TextField(
         value = textInput.value,
@@ -130,13 +139,13 @@ private fun RegisterAccountView(
 }
 
 @Composable
-private fun RegistrationsLog(
+private fun RecentRegistrationsLog(
     registrationUpdatesProvider: () -> List<Indexed<AccountRegistrationUpdate>>,
     modifier: Modifier
 ) {
 
     ItemsColumn(
-        columnName = "Registrations log",
+        columnName = "Registrations log (recent)",
         sizeProvider = { registrationUpdatesProvider().size },
         itemKeyProvider = { itemIndex -> registrationUpdatesProvider()[itemIndex].index },
         modifier = modifier

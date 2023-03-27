@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,7 +70,13 @@ fun ItemCard(
                 modifier = modifier.fillMaxWidth()
                     .wrapContentHeight()
                     .clip(shape = RoundedCornerShape(7.dp))
-                    .background(color = if (itemIndex == 0) Color.Black else Color.DarkGray)
+                    .background(
+                        color = if (itemIndex == 0) {
+                            Color(0xFF32234b)
+                        } else {
+                            Color(0xaa776595)
+                        }
+                    )
             ) {
                 content(primaryContentHeight, secondaryContentHeight - bottomGapHeight)
 

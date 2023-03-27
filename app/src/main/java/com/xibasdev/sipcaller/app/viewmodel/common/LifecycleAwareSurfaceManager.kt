@@ -88,6 +88,10 @@ class LifecycleAwareSurfaceManager @Inject constructor() {
         )
     }
 
+    fun onSurfaceViewDestroyed(surfaceCode: String) {
+        surfaceStorage[surfaceCode.hashCode()].surfaceUpdates.onNext(SurfaceUpdate(null))
+    }
+
     private fun processSurfaceUpdates(
         surfaceUpdates: BehaviorSubject<SurfaceUpdate>,
         onUseSurface: (Surface) -> Completable,

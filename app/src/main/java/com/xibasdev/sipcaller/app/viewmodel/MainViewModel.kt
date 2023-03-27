@@ -64,7 +64,7 @@ class MainViewModel @Inject constructor(
     fun observeRegistrations(): Observable<List<Indexed<AccountRegistrationUpdate>>> {
         return Observable
             .zip(
-                Observable.interval(500, MILLISECONDS),
+                Observable.interval(1, MILLISECONDS),
                 sipEngineClient.observeRegistrations()
             ) { index, update ->
 
@@ -98,7 +98,7 @@ class MainViewModel @Inject constructor(
     fun observeCallHistory(offset: OffsetDateTime): Observable<List<Indexed<CallHistoryUpdate>>> {
         return Observable
             .zip(
-                Observable.interval(500, MILLISECONDS),
+                Observable.interval(1, MILLISECONDS),
                 sipEngineClient.observeCallHistory(offset)
                     .flatMap { updates ->
 

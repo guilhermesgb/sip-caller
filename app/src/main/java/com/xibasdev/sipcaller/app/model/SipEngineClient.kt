@@ -99,6 +99,7 @@ class SipEngineClient @Inject constructor(private val sipEngine: SipEngineApi) {
 
     fun unsetLocalCameraFeedSurface(callId: CallId): Completable {
         return sipEngine.unsetLocalCameraFeedSurface(callId)
+            .observeOn(AndroidSchedulers.mainThread())
     }
 
     fun setRemoteVideoFeedSurface(callId: CallId, surface: Surface): Completable {
@@ -108,5 +109,6 @@ class SipEngineClient @Inject constructor(private val sipEngine: SipEngineApi) {
 
     fun unsetRemoteVideoFeedSurface(callId: CallId): Completable {
         return sipEngine.unsetRemoteVideoFeedSurface(callId)
+            .observeOn(AndroidSchedulers.mainThread())
     }
 }

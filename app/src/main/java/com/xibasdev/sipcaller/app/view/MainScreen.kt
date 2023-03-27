@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.AbsoluteRoundedCornerShape
 import androidx.compose.material3.Button
@@ -66,6 +67,7 @@ fun MainScreen(
         RegistrationsAndHistoryColumns(
             registrationUpdatesProvider = { registrationUpdates.value },
             callHistoryUpdatesProvider = { callHistoryUpdates.value },
+            callDetailsUpdatesProvider = { callDetailsUpdates.value },
             onCreateRegistration = viewModel::createRegistration,
             onDestroyRegistration = viewModel::destroyRegistration,
             onSendCallInvitation = viewModel::sendCallInvitation
@@ -87,6 +89,7 @@ fun MainScreen(
 private fun RegistrationsAndHistoryColumns(
     registrationUpdatesProvider: () -> List<Indexed<AccountRegistrationUpdate>>,
     callHistoryUpdatesProvider: () -> List<Indexed<CallHistoryUpdate>>,
+    callDetailsUpdatesProvider: () -> CallUpdate,
     onCreateRegistration: (rawAccountRegistration: String) -> Unit,
     onDestroyRegistration: () -> Unit,
     onSendCallInvitation: (rawDestinationAccount: String) -> Unit,
@@ -111,6 +114,7 @@ private fun RegistrationsAndHistoryColumns(
         
         HistoryColumn(
             callHistoryUpdatesProvider = callHistoryUpdatesProvider,
+            callDetailsUpdatesProvider = callDetailsUpdatesProvider,
             onSendCallInvitation = onSendCallInvitation,
             modifier = Modifier
                 .weight(0.5f, fill = true)
@@ -133,15 +137,16 @@ private fun CurrentIdentityAndOngoingCallRow(
             .fillMaxWidth(fraction = 0.97f)
     ) {
 
-        CurrentIdentityView(
-            eventUpdatesProvider = eventUpdatesProvider,
-            identityUpdatesProvider = identityUpdatesProvider
-        )
-
         OngoingCallShortcut(
             callDetailsUpdatesProvider = callDetailsUpdatesProvider,
             onNavigateToCallScreen = onNavigateToCallScreen,
-            modifier = Modifier.weight(1.0f, fill = true)
+            modifier = Modifier.wrapContentSize()
+                .align(alignment = Alignment.CenterHorizontally)
+        )
+
+        CurrentIdentityView(
+            eventUpdatesProvider = eventUpdatesProvider,
+            identityUpdatesProvider = identityUpdatesProvider
         )
     }
 }

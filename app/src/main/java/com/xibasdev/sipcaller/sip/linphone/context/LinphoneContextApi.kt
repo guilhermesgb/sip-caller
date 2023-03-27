@@ -15,6 +15,7 @@ import io.reactivex.rxjava3.kotlin.subscribeBy
 import io.reactivex.rxjava3.subjects.BehaviorSubject
 import io.reactivex.rxjava3.subjects.Subject
 import java.util.TreeMap
+import org.linphone.core.Call
 import org.linphone.core.GlobalState
 
 abstract class LinphoneContextApi (private val scheduler: Scheduler) {
@@ -124,7 +125,7 @@ abstract class LinphoneContextApi (private val scheduler: Scheduler) {
 
     abstract fun isCurrentlyHandlingCall(): Boolean
 
-    abstract fun enableOrDisableCallFeatures(callId: CallId, features: CallFeatures): Boolean
+    abstract fun enableOrDisableCallFeatures(call: Call, features: CallFeatures): Boolean
 
     abstract fun setLocalSurface(surface: Surface): Boolean
 

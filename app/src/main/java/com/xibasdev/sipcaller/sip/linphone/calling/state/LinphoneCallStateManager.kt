@@ -88,11 +88,11 @@ class LinphoneCallStateManager @Inject constructor(
             errorStates = setOf(Error, End, Released),
             workDescription = "send outgoing call invitation",
             triggerOperationWork = { linphoneContext.sendCallInvitation(targetAccount) },
-            postOperationWork = { callId ->
+            postOperationWork = { call, _ ->
 
                 // TODO respect currently-enabled permissions
                 linphoneContext.enableOrDisableCallFeatures(
-                    callId = callId,
+                    call = call,
                     features = CallFeatures(
                         microphone = CallFeature(enabled = true),
                         speaker = CallFeature(enabled = true),
@@ -143,10 +143,11 @@ class LinphoneCallStateManager @Inject constructor(
             errorStates = setOf(Error, Released),
             workDescription = "accept incoming call invitation",
             triggerOperationWork = { linphoneContext.acceptCallInvitation(callId) },
-            postOperationWork = {
+            postOperationWork = { call, _ ->
+
                 // TODO respect currently-enabled permissions
                 linphoneContext.enableOrDisableCallFeatures(
-                    callId = callId,
+                    call = call,
                     features = CallFeatures(
                         microphone = CallFeature(enabled = true),
                         speaker = CallFeature(enabled = true),
@@ -184,7 +185,7 @@ class LinphoneCallStateManager @Inject constructor(
         errorStates: Set<Call.State>,
         workDescription: String,
         triggerOperationWork: () -> Boolean,
-        postOperationWork: (CallId) -> Boolean = { true }
+        postOperationWork: (call: Call, callId: CallId) -> Boolean = { _, _ -> true }
     ) {
 
         val callStateChangeListenerId = linphoneContext.createCallStateChangeListener {
@@ -204,8 +205,9 @@ class LinphoneCallStateManager @Inject constructor(
                 linphoneContext.disableCoreListener(coreListenerId)
 
                 val callId = CallId(callStateChange.callId)
+                val call = callStateChange.call
 
-                if (postOperationWork(callId)) {
+                if (postOperationWork(call, callId)) {
                     singleEmitter?.onSuccess(callId)
                     completableEmitter?.onComplete()
 

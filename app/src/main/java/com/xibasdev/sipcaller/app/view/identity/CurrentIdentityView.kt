@@ -43,12 +43,18 @@ import com.xibasdev.sipcaller.app.viewmodel.events.calling.decline.DecliningCall
 import com.xibasdev.sipcaller.app.viewmodel.events.calling.send.CallInvitationSent
 import com.xibasdev.sipcaller.app.viewmodel.events.calling.send.SendCallInvitationFailed
 import com.xibasdev.sipcaller.app.viewmodel.events.calling.send.SendingCallInvitation
-import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.local.LocalSurfaceUpdated
-import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.local.UpdateLocalSurfaceFailed
-import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.local.UpdatingLocalSurface
-import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.remote.RemoteSurfaceUpdated
-import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.remote.UpdateRemoteSurfaceFailed
-import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.remote.UpdatingRemoteSurface
+import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.local.destroy.DestroyLocalSurfaceFailed
+import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.local.destroy.DestroyingLocalSurface
+import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.local.destroy.LocalSurfaceDestroyed
+import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.local.update.LocalSurfaceUpdated
+import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.local.update.UpdateLocalSurfaceFailed
+import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.local.update.UpdatingLocalSurface
+import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.remote.destroy.DestroyRemoteSurfaceFailed
+import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.remote.destroy.DestroyingRemoteSurface
+import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.remote.destroy.RemoteSurfaceDestroyed
+import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.remote.update.RemoteSurfaceUpdated
+import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.remote.update.UpdateRemoteSurfaceFailed
+import com.xibasdev.sipcaller.app.viewmodel.events.calling.surfaces.remote.update.UpdatingRemoteSurface
 import com.xibasdev.sipcaller.app.viewmodel.events.calling.terminate.CallSessionTerminated
 import com.xibasdev.sipcaller.app.viewmodel.events.calling.terminate.TerminateCallSessionFailed
 import com.xibasdev.sipcaller.app.viewmodel.events.calling.terminate.TerminatingCallSession
@@ -92,8 +98,14 @@ fun CurrentIdentityView(
             is UpdateLocalSurfaceFailed -> {
                 "Failed to update local surface: ${eventUpdate.error.message}"
             }
+            is DestroyLocalSurfaceFailed -> {
+                "Failed to destroy local surface: ${eventUpdate.error.message}"
+            }
             is UpdateRemoteSurfaceFailed -> {
                 "Failed to update remote surface: ${eventUpdate.error.message}"
+            }
+            is DestroyRemoteSurfaceFailed -> {
+                "Failed to destroy remote surface: ${eventUpdate.error.message}"
             }
             else -> "Unknown error"
         }
@@ -164,8 +176,14 @@ fun CurrentIdentityView(
                 is UpdatingLocalSurface -> {
                     "; Updating local surface..."
                 }
+                is DestroyingLocalSurface -> {
+                    "; Destroying local surface..."
+                }
                 is UpdatingRemoteSurface -> {
                     "; Updating remote surface..."
+                }
+                is DestroyingRemoteSurface -> {
+                    "; Destroying remote surface..."
                 }
                 else -> ""
             }
@@ -194,8 +212,14 @@ fun CurrentIdentityView(
                 is LocalSurfaceUpdated -> {
                     "; Local surface updated"
                 }
+                is LocalSurfaceDestroyed -> {
+                    "; Local surface destroyed"
+                }
                 is RemoteSurfaceUpdated -> {
                     "; Remote surface updated"
+                }
+                is RemoteSurfaceDestroyed -> {
+                    "; Remote surface destroyed"
                 }
                 else -> ""
             }

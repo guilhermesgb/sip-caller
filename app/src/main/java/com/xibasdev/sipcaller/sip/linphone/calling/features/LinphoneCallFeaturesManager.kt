@@ -3,9 +3,9 @@ package com.xibasdev.sipcaller.sip.linphone.calling.features
 import android.view.Surface
 import com.xibasdev.sipcaller.sip.calling.Call
 import com.xibasdev.sipcaller.sip.calling.CallId
+import com.xibasdev.sipcaller.sip.calling.CallStatus.*
 import com.xibasdev.sipcaller.sip.calling.details.CallInvitationUpdate
 import com.xibasdev.sipcaller.sip.calling.details.CallSessionUpdate
-import com.xibasdev.sipcaller.sip.calling.CallStatus.*
 import com.xibasdev.sipcaller.sip.calling.details.NoCallUpdateAvailable
 import com.xibasdev.sipcaller.sip.calling.features.CallFeaturesManagerApi
 import com.xibasdev.sipcaller.sip.linphone.calling.details.LinphoneCallDetailsObserver

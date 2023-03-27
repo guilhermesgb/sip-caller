@@ -11,9 +11,9 @@ import java.util.concurrent.TimeUnit
 
 open class BaseViewModel : ViewModel() {
 
-    private val disposables = CompositeDisposable()
+    protected val disposables = CompositeDisposable()
 
-    private val events = BehaviorSubject.create<ViewModelEvent>()
+    protected val events = BehaviorSubject.create<ViewModelEvent>()
 
     fun observeEvents(): Observable<ViewModelEvent> {
         return events
@@ -44,27 +44,6 @@ open class BaseViewModel : ViewModel() {
                 )
             }
             .subscribe()
-            .addTo(disposables)
-    }
-
-    internal fun Completable.continuouslyPropagateResultAsEvent(
-        onRunningEvent: ViewModelEvent,
-        onCompleteEvent: ViewModelEvent,
-        onErrorEventProvider: (Throwable) -> ViewModelEvent
-    ) {
-
-        doOnSubscribe {
-            events.onNext(onRunningEvent)
-        }.doOnComplete {
-            events.onNext(onCompleteEvent)
-        }.doOnError { error ->
-
-            events.onNext(onErrorEventProvider(error))
-        }.onErrorResumeWith {
-            continuouslyPropagateResultAsEvent(
-                onRunningEvent, onCompleteEvent, onErrorEventProvider
-            )
-        }.subscribe()
             .addTo(disposables)
     }
 

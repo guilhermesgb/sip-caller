@@ -19,12 +19,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xibasdev.sipcaller.app.view.common.ItemsColumn
+import com.xibasdev.sipcaller.app.view.common.toRawString
 import com.xibasdev.sipcaller.app.viewmodel.common.Indexed
+import com.xibasdev.sipcaller.sip.calling.details.CallInvitationUpdate
+import com.xibasdev.sipcaller.sip.calling.details.CallSessionUpdate
+import com.xibasdev.sipcaller.sip.calling.details.CallUpdate
+import com.xibasdev.sipcaller.sip.calling.details.NoCallUpdateAvailable
 import com.xibasdev.sipcaller.sip.history.CallHistoryUpdate
 
 @Composable
 fun HistoryColumn(
     callHistoryUpdatesProvider: () -> List<Indexed<CallHistoryUpdate>>,
+    callDetailsUpdatesProvider: () -> CallUpdate,
     onSendCallInvitation: (rawDestinationAccount: String) -> Unit,
     modifier: Modifier
 ) {
@@ -36,6 +42,8 @@ fun HistoryColumn(
     ) {
 
         SendCallInvitationView(
+            callHistoryUpdatesProvider = callHistoryUpdatesProvider,
+            callDetailsUpdatesProvider = callDetailsUpdatesProvider,
             onSendCallInvitation = onSendCallInvitation
         )
 
@@ -49,11 +57,30 @@ fun HistoryColumn(
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
-private fun SendCallInvitationView(onSendCallInvitation: (rawDestinationAccount: String) -> Unit) {
+private fun SendCallInvitationView(
+    callHistoryUpdatesProvider: () -> List<Indexed<CallHistoryUpdate>>,
+    callDetailsUpdatesProvider: () -> CallUpdate,
+    onSendCallInvitation: (rawDestinationAccount: String) -> Unit
+) {
+
     val textInput = remember { mutableStateOf("") }
+
+    val callHistoryUpdates = callHistoryUpdatesProvider()
+
+    if (callHistoryUpdates.isNotEmpty()) {
+        textInput.value = callHistoryUpdates.first().value.remoteAccount
+            .toRawString(includeDisplayName = false)
+    }
+
+    val inputFormEnabled = when (val callDetailsUpdate = callDetailsUpdatesProvider()) {
+        is CallInvitationUpdate -> callDetailsUpdate.call.status.isTerminal
+        is CallSessionUpdate -> callDetailsUpdate.call.status.isTerminal
+        NoCallUpdateAvailable -> true
+    }
 
     TextField(
         value = textInput.value,
+        enabled = inputFormEnabled,
         onValueChange = { updatedText ->
 
             textInput.value = updatedText
@@ -74,6 +101,7 @@ private fun SendCallInvitationView(onSendCallInvitation: (rawDestinationAccount:
 
     Button(
         onClick = { onSendCallInvitation(textInput.value) },
+        enabled = inputFormEnabled,
         shape = AbsoluteRoundedCornerShape(size = 7.dp),
         modifier = Modifier
             .fillMaxWidth(fraction = 0.8f)
@@ -96,7 +124,7 @@ private fun HistoryLog(
 ) {
 
     ItemsColumn(
-        columnName = "Call history log",
+        columnName = "Call history log (recent)",
         sizeProvider = { callHistoryUpdatesProvider().size },
         itemKeyProvider = { itemIndex -> callHistoryUpdatesProvider()[itemIndex].index },
         modifier = modifier

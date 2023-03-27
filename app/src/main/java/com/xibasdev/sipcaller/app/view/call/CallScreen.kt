@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.AbsoluteRoundedCornerShape
@@ -35,7 +36,16 @@ import com.xibasdev.sipcaller.sip.calling.CallDirection.INCOMING
 import com.xibasdev.sipcaller.sip.calling.CallDirection.OUTGOING
 import com.xibasdev.sipcaller.sip.calling.CallId
 import com.xibasdev.sipcaller.sip.calling.CallStage.SESSION
+import com.xibasdev.sipcaller.sip.calling.CallStatus
+import com.xibasdev.sipcaller.sip.calling.CallStatus.ABORTED_DUE_TO_ERROR
 import com.xibasdev.sipcaller.sip.calling.CallStatus.ACCEPTED
+import com.xibasdev.sipcaller.sip.calling.CallStatus.ACCEPTED_ELSEWHERE
+import com.xibasdev.sipcaller.sip.calling.CallStatus.CANCELED
+import com.xibasdev.sipcaller.sip.calling.CallStatus.DECLINED
+import com.xibasdev.sipcaller.sip.calling.CallStatus.FINISHED_BY_LOCAL_PARTY
+import com.xibasdev.sipcaller.sip.calling.CallStatus.FINISHED_BY_REMOTE_PARTY
+import com.xibasdev.sipcaller.sip.calling.CallStatus.FINISHED_DUE_TO_ERROR
+import com.xibasdev.sipcaller.sip.calling.CallStatus.MISSED
 import com.xibasdev.sipcaller.sip.calling.CallStatus.RINGING
 import com.xibasdev.sipcaller.sip.calling.details.CallInvitationUpdate
 import com.xibasdev.sipcaller.sip.calling.details.CallSessionUpdate
@@ -78,19 +88,24 @@ fun CallScreen(
         BasicCallInfo(
             callDetailsUpdatesProvider = { callDetailsUpdates.value },
             modifier = Modifier.align(alignment = Alignment.TopCenter)
+                .fillMaxWidth(fraction = 0.97f)
+                .wrapContentHeight()
+                .padding(top = 20.dp)
+        )
+
+        CentralMessageText(
+            callDetailsUpdatesProvider = { callDetailsUpdates.value },
+            modifier = Modifier.align(alignment = Alignment.Center)
         )
 
         Column(
-            modifier = Modifier
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceAround,
+            modifier = Modifier.align(alignment = Alignment.BottomCenter)
                 .fillMaxWidth(fraction = 0.97f)
                 .wrapContentHeight()
-                .align(alignment = Alignment.BottomCenter)
+                .padding(bottom = 20.dp)
         ) {
-
-            CurrentIdentityView(
-                eventUpdatesProvider = { eventUpdates.value },
-                identityUpdatesProvider = { identityUpdates.value }
-            )
 
             CallActionButtons(
                 callId = callId,
@@ -100,6 +115,11 @@ fun CallScreen(
                 onAcceptCallInvitation = viewModel::acceptCallInvitation,
                 onTerminateCallSession = viewModel::terminateCallSession
             )
+
+            CurrentIdentityView(
+                eventUpdatesProvider = { eventUpdates.value },
+                identityUpdatesProvider = { identityUpdates.value }
+            )
         }
     }
 }
@@ -107,8 +127,8 @@ fun CallScreen(
 @Composable
 fun LiveVideoFeeds(
     callInProgressUpdatesProvider: () -> Boolean,
-    onUpdateLocalSurfaceView: (surfaceView: SurfaceView) -> Unit,
-    onUpdateRemoteSurfaceView: (surfaceView: SurfaceView) -> Unit
+    onUpdateLocalSurfaceView: (surfaceView: SurfaceView?) -> Unit,
+    onUpdateRemoteSurfaceView: (surfaceView: SurfaceView?) -> Unit
 ) {
     Box(
         modifier = Modifier.fillMaxSize()
@@ -127,6 +147,15 @@ fun LiveVideoFeeds(
                     .fillMaxSize(0.3f)
                     .align(Alignment.CenterEnd)
             )
+
+        } else {
+            onUpdateLocalSurfaceView(null)
+            onUpdateRemoteSurfaceView(null)
+
+            Box(
+                modifier = Modifier.fillMaxSize()
+                    .background(color = Color.Black)
+            ) {}
         }
     }
 }
@@ -139,12 +168,7 @@ private fun BasicCallInfo(
     Column(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier
-            .fillMaxWidth()
-            .wrapContentHeight()
-            .clip(
-                shape = RoundedCornerShape(7.dp)
-            )
+        modifier = modifier.clip(shape = RoundedCornerShape(7.dp))
             .background(color = MaterialTheme.colorScheme.secondary)
     ) {
 
@@ -163,9 +187,9 @@ private fun BasicCallInfo(
             val rawAudioCodec = streams.audio.codec.codecName
             val rawVideoCodec = streams.video.codec.codecName
 
-            val text = "$rawDirection call $rawStage $perspective $rawRemoteAccount " +
-                    "/ $rawAudioCodec, $rawVideoCodec / " +
-                    (if (stage == SESSION) "${durationMs / 1000} seconds" else "")
+            val text = "$rawDirection call $rawStage $perspective $rawRemoteAccount" +
+                    (if (!status.isTerminal) " / $rawAudioCodec, $rawVideoCodec" else "") +
+                    (if (stage == SESSION) " / ${durationMs / 1000} seconds" else "")
 
             Text(
                 text = text,
@@ -176,6 +200,46 @@ private fun BasicCallInfo(
                 modifier = Modifier.wrapContentSize()
             )
         }
+    }
+}
+
+@Composable
+fun CentralMessageText(
+    callDetailsUpdatesProvider: () -> CallUpdate,
+    modifier: Modifier
+) {
+
+    val text = when (val callDetailsUpdate = callDetailsUpdatesProvider()) {
+        is CallInvitationUpdate -> if (callDetailsUpdate.call.status.isTerminal) {
+            getDescription(callDetailsUpdate.call.status)
+        } else "Ringing..."
+        is CallSessionUpdate -> if (callDetailsUpdate.call.status.isTerminal) {
+            getDescription(callDetailsUpdate.call.status)
+        } else ""
+        NoCallUpdateAvailable -> "No call update available"
+    }
+
+    Text(
+        text = text,
+        fontSize = 24.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 0.8.sp,
+        color = Color.White,
+        modifier = modifier
+    )
+}
+
+fun getDescription(status: CallStatus): String {
+    return when (status) {
+        CANCELED -> "Canceled outgoing call invitation"
+        MISSED -> "Missed incoming call invitation"
+        ACCEPTED_ELSEWHERE -> "Call invitation accepted elsewhere"
+        DECLINED -> "Declined incoming call invitation"
+        ABORTED_DUE_TO_ERROR -> "Failed to send outgoing call invitation"
+        FINISHED_BY_LOCAL_PARTY -> "Call session finished by you"
+        FINISHED_BY_REMOTE_PARTY -> "Call session finished by your correspondent"
+        FINISHED_DUE_TO_ERROR -> "Call session finished due to failure"
+        else -> ""
     }
 }
 

@@ -144,6 +144,7 @@ class LinphoneContext @Inject constructor(
 
                 callback(
                     LinphoneCallStateChange(
+                        call = call,
                         callId = call.callLog.callId.orEmpty(),
                         direction = call.dir ?: Outgoing,
                         state = callState ?: OutgoingInit,
@@ -537,16 +538,14 @@ class LinphoneContext @Inject constructor(
         return linphoneCore.currentCall != null
     }
 
-    override fun enableOrDisableCallFeatures(callId: CallId, features: CallFeatures): Boolean {
-        return doForCallWithCallId(callId) { call ->
-            call.microphoneMuted = !features.microphone.enabled
-            call.speakerMuted = !features.speaker.enabled
-            call.isCameraEnabled = features.camera.enabled
+    override fun enableOrDisableCallFeatures(call: Call, features: CallFeatures): Boolean {
+        call.microphoneMuted = !features.microphone.enabled
+        call.speakerMuted = !features.speaker.enabled
+        call.isCameraEnabled = features.camera.enabled
 
-            call.microphoneMuted == !features.microphone.enabled &&
-                    call.speakerMuted == !features.speaker.enabled &&
-                    call.isCameraEnabled == features.camera.enabled
-        }
+        return call.microphoneMuted == !features.microphone.enabled &&
+                call.speakerMuted == !features.speaker.enabled &&
+                call.isCameraEnabled == features.camera.enabled
     }
 
     override fun setLocalSurface(surface: Surface): Boolean {
